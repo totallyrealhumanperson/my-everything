@@ -2,30 +2,30 @@
 "use server";
 
 import { filterOffensiveLanguage as aiFilter, type FilterOffensiveLanguageInput, type FilterOffensiveLanguageOutput } from "@/ai/flows/filter-offensive-language";
-import { TwitterApi } from 'twitter-api-v2'; // Value import
-import type { ApiV2Error, TwitterApiReadWrite } from 'twitter-api-v2'; // Type-only imports
+// Static imports for twitter-api-v2 are removed and will be dynamically imported.
 
 export async function analyzeTweetSentiment(data: FilterOffensiveLanguageInput): Promise<FilterOffensiveLanguageOutput> {
   try {
     const result = await aiFilter(data);
-    // Ensure result structure matches FilterOffensiveLanguageOutput, especially boolean and string types
     return {
-      isOffensive: !!result.isOffensive, // Coerce to boolean
-      rephrasedTweet: result.rephrasedTweet || "", // Ensure string, provide fallback
-      explanation: result.explanation || "" // Ensure string, provide fallback
+      isOffensive: !!result.isOffensive,
+      rephrasedTweet: result.rephrasedTweet || "",
+      explanation: result.explanation || ""
     };
   } catch (error) {
     console.error("Error in analyzeTweetSentiment:", error);
-    // Return a default non-offensive structure in case of error to prevent app crash
     return {
       isOffensive: false,
-      rephrasedTweet: data.tweet, // Return original tweet
+      rephrasedTweet: data.tweet,
       explanation: "Could not analyze tweet sentiment due to an error."
     };
   }
 }
 
-const getTwitterClient = (): TwitterApiReadWrite => {
+const getTwitterClient = async () => {
+  // Dynamically import TwitterApi only when the function is called
+  const { TwitterApi } = await import('twitter-api-v2');
+
   if (
     !process.env.X_API_KEY ||
     !process.env.X_API_KEY_SECRET ||
@@ -40,7 +40,7 @@ const getTwitterClient = (): TwitterApiReadWrite => {
     accessToken: process.env.X_ACCESS_TOKEN as string,
     accessSecret: process.env.X_ACCESS_TOKEN_SECRET as string,
   });
-  return client.readWrite;
+  return client.readWrite; // The type of readWrite client will be inferred
 };
 
 
@@ -54,7 +54,7 @@ export async function submitTweet(tweetContent: string): Promise<{ success: bool
   }
 
   try {
-    const twitterClient = getTwitterClient();
+    const twitterClient = await getTwitterClient(); // Now an async call
     const { data: createdTweet } = await twitterClient.v2.tweet(tweetContent);
     console.log(`Tweet Posted! ID: ${createdTweet.id}, Content: "${createdTweet.text}"`);
     return { success: true, message: "Tweet successfully posted!", tweetId: createdTweet.id };
@@ -62,9 +62,10 @@ export async function submitTweet(tweetContent: string): Promise<{ success: bool
     console.error("Error posting tweet to X:", error);
     let errorMessage = "Failed to post tweet. Please try again.";
     
-    const apiError = error as ApiV2Error;
-    // Check if it's an ApiV2Error by looking for its characteristic properties
-    if (apiError && typeof apiError === 'object' && 'isApiError' in apiError && apiError.isApiError) {
+    // Check for ApiV2Error structure without static type import
+    // The 'error' object might be an instance of ApiV2Error from twitter-api-v2
+    const apiError = error as any; // Use 'as any' for property checking
+    if (apiError && typeof apiError === 'object' && apiError.isApiError) {
       if (apiError.data && (apiError.data.detail || apiError.data.title)) {
         errorMessage = apiError.data.detail || apiError.data.title || "X API Error";
       }
