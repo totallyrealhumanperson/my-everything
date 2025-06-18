@@ -3,6 +3,7 @@
 "use server";
 
 import { filterOffensiveLanguage as aiFilter, type FilterOffensiveLanguageInput, type FilterOffensiveLanguageOutput } from "@/ai/flows/filter-offensive-language";
+import { TwitterApi, type ApiV2Error } from 'twitter-api-v2';
 
 export async function analyzeTweetSentiment(data: FilterOffensiveLanguageInput): Promise<FilterOffensiveLanguageOutput> {
   try {
@@ -24,6 +25,24 @@ export async function analyzeTweetSentiment(data: FilterOffensiveLanguageInput):
   }
 }
 
+const getTwitterClient = () => {
+  if (
+    !process.env.X_API_KEY ||
+    !process.env.X_API_KEY_SECRET ||
+    !process.env.X_ACCESS_TOKEN ||
+    !process.env.X_ACCESS_TOKEN_SECRET
+  ) {
+    throw new Error("X API credentials are not fully configured in environment variables.");
+  }
+  return new TwitterApi({
+    appKey: process.env.X_API_KEY,
+    appSecret: process.env.X_API_KEY_SECRET,
+    accessToken: process.env.X_ACCESS_TOKEN,
+    accessSecret: process.env.X_ACCESS_TOKEN_SECRET,
+  });
+};
+
+
 export async function submitTweet(tweetContent: string): Promise<{ success: boolean; message: string; tweetId?: string }> {
   console.log("Attempting to post tweet:", tweetContent);
   if (!tweetContent || tweetContent.trim().length === 0) {
@@ -33,11 +52,24 @@ export async function submitTweet(tweetContent: string): Promise<{ success: bool
     return { success: false, message: "Tweet exceeds 280 characters." };
   }
 
-  // Simulate network delay
-  await new Promise(resolve => setTimeout(resolve, 1000));
-
-  // Simulate a successful post
-  const mockTweetId = Math.random().toString(36).substring(2, 15);
-  console.log(`Mock Tweet Posted! ID: ${mockTweetId}, Content: "${tweetContent}"`);
-  return { success: true, message: "Tweet successfully posted!", tweetId: mockTweetId };
+  try {
+    const twitterClient = getTwitterClient();
+    const rwClient = twitterClient.readWrite;
+    const { data: createdTweet } = await rwClient.v2.tweet(tweetContent);
+    console.log(`Tweet Posted! ID: ${createdTweet.id}, Content: "${createdTweet.text}"`);
+    return { success: true, message: "Tweet successfully posted!", tweetId: createdTweet.id };
+  } catch (error) {
+    console.error("Error posting tweet to X:", error);
+    let errorMessage = "Failed to post tweet. Please try again.";
+    
+    // Check if it's an ApiV2Error from twitter-api-v2
+    const apiError = error as ApiV2Error;
+    if (apiError.isApiError && apiError.data && (apiError.data.detail || apiError.data.title)) {
+       errorMessage = apiError.data.detail || apiError.data.title || "X API Error";
+    } else if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+    
+    return { success: false, message: errorMessage };
+  }
 }
