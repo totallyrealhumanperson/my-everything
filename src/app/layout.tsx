@@ -1,16 +1,18 @@
+
 import type {Metadata} from 'next';
 import './globals.css';
-import { Inter } from 'next/font/google'; // Import Inter font
+import { Inter } from 'next/font/google';
+import { AuthProvider } from '@/contexts/auth-context'; // Import AuthProvider
+import { Toaster } from "@/components/ui/toaster"; // Import Toaster globally
 
-// Configure Inter font
 const inter = Inter({
   subsets: ['latin'],
-  variable: '--font-inter', // CSS variable for Inter font
+  variable: '--font-inter',
 });
 
 export const metadata: Metadata = {
   title: 'Personal Notes',
-  description: 'Jot down your thoughts and ideas.',
+  description: 'Jot down your thoughts and ideas, securely.',
 };
 
 export default function RootLayout({
@@ -19,11 +21,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable}`}> {/* Apply Inter font variable to html tag */}
-      <head>
-        {/* Google Fonts link for Inter is not needed if using next/font */}
-      </head>
-      <body className="font-body antialiased">{children}</body> {/* font-body will use --font-inter */}
+    <html lang="en" className={`${inter.variable}`}>
+      <head />
+      <body className="font-body antialiased">
+        <AuthProvider> {/* Wrap children with AuthProvider */}
+          {children}
+          <Toaster /> {/* Add Toaster here for global access */}
+        </AuthProvider>
+      </body>
     </html>
   );
 }
