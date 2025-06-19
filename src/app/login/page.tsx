@@ -6,7 +6,7 @@ import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+// import Link from 'next/link'; // Removed Link as signup is disabled
 import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -54,6 +54,9 @@ export default function LoginPage() {
           case 'auth/invalid-email':
             errorMessage = 'Invalid email format.';
             break;
+          case 'auth/api-key-not-valid':
+            errorMessage = 'Firebase API Key is not valid. Please check your environment configuration.';
+            break;
           default:
             errorMessage = error.message || errorMessage;
         }
@@ -73,7 +76,7 @@ export default function LoginPage() {
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader>
           <CardTitle className="text-2xl font-headline text-primary">Login</CardTitle>
-          <CardDescription>Access your personal notes.</CardDescription>
+          <CardDescription>Access your account to post notes to X.</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit(onSubmit)}>
           <CardContent className="space-y-4">
@@ -105,12 +108,12 @@ export default function LoginPage() {
               {isPending ? <Loader2 className="animate-spin" /> : <LogIn className="mr-2 h-4 w-4" />}
               Login
             </Button>
-            <p className="text-sm text-muted-foreground">
+            {/* <p className="text-sm text-muted-foreground">
               Don&apos;t have an account?{' '}
               <Link href="/signup" className="font-medium text-primary hover:underline">
                 Sign up
               </Link>
-            </p>
+            </p> */}
           </CardFooter>
         </form>
       </Card>

@@ -45,38 +45,28 @@ const getTwitterClient = async () => {
 
 
 export async function submitTweet(tweetContent: string): Promise<{ success: boolean; message: string; tweetId?: string }> {
-  console.log("Attempting to post tweet:", tweetContent); // Keep for debugging
+  console.log("Attempting to post tweet:", tweetContent);
   if (!tweetContent || tweetContent.trim().length === 0) {
     return { success: false, message: "Note content cannot be empty." };
   }
-  // Max length check can be removed if not relevant for "notes" vs "tweets"
-  // if (tweetContent.length > 280) {
-  //   return { success: false, message: "Note exceeds 280 characters." };
-  // }
+  if (tweetContent.length > 280) { // X character limit
+    return { success: false, message: "Note exceeds 280 characters." };
+  }
 
   try {
-    // For "Personal Notes", we might not actually call Twitter API.
-    // Simulating a save operation for now.
-    // If X integration is still desired, uncomment the X API call.
-
-    // const twitterClient = await getTwitterClient();
-    // const { data: createdTweet } = await twitterClient.v2.tweet(tweetContent);
-    // console.log(`Tweet Posted! ID: ${createdTweet.id}, Content: "${createdTweet.text}"`);
-    // return { success: true, message: "Tweet successfully posted!", tweetId: createdTweet.id };
-    
-    // Simulate saving a note
-    console.log(`Note saved (simulated): ${tweetContent}`);
-    // In a real app, you'd save this to Firebase Firestore here, associated with the logged-in user.
-    return { success: true, message: "Note successfully saved!" };
+    const twitterClient = await getTwitterClient();
+    const { data: createdTweet } = await twitterClient.v2.tweet(tweetContent);
+    console.log(`Tweet Posted! ID: ${createdTweet.id}, Content: "${createdTweet.text}"`);
+    return { success: true, message: "Tweet successfully posted!", tweetId: createdTweet.id };
 
   } catch (error) {
-    console.error("Error saving note:", error);
-    let errorMessage = "Failed to save note. Please try again.";
+    console.error("Error posting tweet:", error);
+    let errorMessage = "Failed to post tweet. Please try again.";
     
     const apiError = error as any; 
     if (apiError && typeof apiError === 'object' && apiError.isApiError) {
       if (apiError.data && (apiError.data.detail || apiError.data.title)) {
-        errorMessage = apiError.data.detail || apiError.data.title || "X API Error (if used)";
+        errorMessage = apiError.data.detail || apiError.data.title || "X API Error";
       }
     } else if (error instanceof Error) {
       errorMessage = error.message;
@@ -85,4 +75,3 @@ export async function submitTweet(tweetContent: string): Promise<{ success: bool
     return { success: false, message: errorMessage };
   }
 }
-

@@ -5,17 +5,17 @@ import type { User } from 'firebase/auth';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import {
   onAuthStateChanged,
-  createUserWithEmailAndPassword,
+  // createUserWithEmailAndPassword, // Removed as signup is manual
   signInWithEmailAndPassword,
   signOut,
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import type { AuthCredential } from 'firebase/auth'; // For type usage if needed later
+// import type { AuthCredential } from 'firebase/auth'; // For type usage if needed later
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  signUpWithEmail: (email: string, pass: string) => Promise<User | null>;
+  // signUpWithEmail: (email: string, pass: string) => Promise<User | null>; // Removed
   signInWithEmail: (email: string, pass: string) => Promise<User | null>;
   signOutUser: () => Promise<void>;
 }
@@ -34,15 +34,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-  const signUpWithEmail = async (email: string, pass: string): Promise<User | null> => {
-    try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
-      return userCredential.user;
-    } catch (error) {
-      console.error("Error signing up:", error);
-      throw error; // Re-throw to be caught by the calling component
-    }
-  };
+  // const signUpWithEmail = async (email: string, pass: string): Promise<User | null> => {
+  //   try {
+  //     const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
+  //     return userCredential.user;
+  //   } catch (error) {
+  //     console.error("Error signing up:", error);
+  //     throw error; // Re-throw to be caught by the calling component
+  //   }
+  // };
 
   const signInWithEmail = async (email: string, pass: string): Promise<User | null> => {
     try {
@@ -64,7 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signUpWithEmail, signInWithEmail, signOutUser }}>
+    <AuthContext.Provider value={{ user, loading, /*signUpWithEmail,*/ signInWithEmail, signOutUser }}>
       {children}
     </AuthContext.Provider>
   );

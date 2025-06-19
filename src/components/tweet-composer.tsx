@@ -27,7 +27,7 @@ import {
 import { SendHorizonal, Sparkles, Loader2, Info } from "lucide-react";
 
 const tweetSchema = z.object({
-  text: z.string().min(1, "Tweet cannot be empty.").max(280, "Tweet cannot exceed 280 characters."),
+  text: z.string().min(1, "Note cannot be empty.").max(280, "Note cannot exceed 280 characters for X."),
 });
 
 type TweetFormData = z.infer<typeof tweetSchema>;
@@ -58,7 +58,7 @@ export function TweetComposer() {
       if (result.success) {
         toast({
           title: "Success!",
-          description: result.message,
+          description: result.message, // Should now be "Tweet successfully posted!"
         });
         form.reset();
         setAiResult(null);
@@ -108,7 +108,7 @@ export function TweetComposer() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-2xl font-headline">
             <Sparkles className="h-6 w-6 text-primary" />
-            Compose Note
+            Compose Note for X
           </CardTitle>
         </CardHeader>
         <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -117,7 +117,7 @@ export function TweetComposer() {
               <Label htmlFor="tweet-text" className="sr-only">Note content</Label>
               <Textarea
                 id="tweet-text"
-                placeholder="What's on your mind?"
+                placeholder="What's on your mind for X?"
                 className="min-h-[120px] text-base resize-none focus:ring-2 focus:ring-primary"
                 {...form.register("text")}
                 aria-invalid={form.formState.errors.text ? "true" : "false"}
@@ -144,14 +144,14 @@ export function TweetComposer() {
               type="submit" 
               className="w-full text-lg py-6"
               disabled={isPending || charCount === 0 || charCount > MAX_CHARS}
-              aria-label="Analyze and Post Note"
+              aria-label="Analyze and Post Note to X"
             >
               {isPending ? (
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               ) : (
                 <SendHorizonal className="mr-2 h-5 w-5" />
               )}
-              Analyze & Save
+              Analyze & Post
             </Button>
           </CardFooter>
         </form>
@@ -187,13 +187,13 @@ export function TweetComposer() {
 
             <AlertDialogFooter className="gap-2 sm:gap-0">
               <Button variant="outline" onClick={() => handleAiDialogAction("edit")}>Edit Manually</Button>
-              <Button variant="ghost" onClick={() => handleAiDialogAction("post_original")}>Save Original Anyway</Button>
+              <Button variant="ghost" onClick={() => handleAiDialogAction("post_original")}>Post Original Anyway</Button>
               {aiResult.isOffensive && aiResult.rephrasedTweet && (
                 <Button 
                   className="bg-accent hover:bg-accent/90 text-accent-foreground"
                   onClick={() => handleAiDialogAction("use_suggestion")}
                 >
-                  Use Suggestion & Save
+                  Use Suggestion & Post
                 </Button>
               )}
             </AlertDialogFooter>
