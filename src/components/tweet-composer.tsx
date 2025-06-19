@@ -1,15 +1,14 @@
-// @ts-nocheck
-// TODO: Fix typescript errors
+
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { analyzeTweetSentiment, submitTweet } from "@/app/actions";
@@ -24,7 +23,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { SendHorizonal, Sparkles, Loader2, Info } from "lucide-react";
 
@@ -76,7 +74,7 @@ export function TweetComposer() {
   };
 
   const onSubmit: SubmitHandler<TweetFormData> = (data) => {
-    setTweetToSubmit(data.text); // Store the current text for potential submission
+    setTweetToSubmit(data.text); 
     startTransition(async () => {
       const analysisResult = await analyzeTweetSentiment({ tweet: data.text });
       setAiResult(analysisResult);
@@ -90,12 +88,11 @@ export function TweetComposer() {
 
   const handleAiDialogAction = (action: "use_suggestion" | "post_original" | "edit") => {
     if (action === "use_suggestion" && aiResult?.rephrasedTweet) {
-      form.setValue("text", aiResult.rephrasedTweet); // Update text area
-      handleActualSubmit(aiResult.rephrasedTweet); // Directly post suggestion
+      form.setValue("text", aiResult.rephrasedTweet); 
+      handleActualSubmit(aiResult.rephrasedTweet); 
     } else if (action === "post_original") {
-      handleActualSubmit(tweetToSubmit); // Post original text that triggered dialog
+      handleActualSubmit(tweetToSubmit); 
     }
-    // For "edit", just closing the dialog is enough, user edits manually.
     setShowAiDialog(false);
   };
 
@@ -111,17 +108,16 @@ export function TweetComposer() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-2xl font-headline">
             <Sparkles className="h-6 w-6 text-primary" />
-            Compose Tweet
+            Compose Note
           </CardTitle>
-          <CardDescription>Craft your message and share it with the world (via API).</CardDescription>
         </CardHeader>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <CardContent>
             <div className="grid w-full gap-2">
-              <Label htmlFor="tweet-text" className="sr-only">Tweet content</Label>
+              <Label htmlFor="tweet-text" className="sr-only">Note content</Label>
               <Textarea
                 id="tweet-text"
-                placeholder="What's happening?"
+                placeholder="What's on your mind?"
                 className="min-h-[120px] text-base resize-none focus:ring-2 focus:ring-primary"
                 {...form.register("text")}
                 aria-invalid={form.formState.errors.text ? "true" : "false"}
@@ -148,14 +144,14 @@ export function TweetComposer() {
               type="submit" 
               className="w-full text-lg py-6"
               disabled={isPending || charCount === 0 || charCount > MAX_CHARS}
-              aria-label="Analyze and Post Tweet"
+              aria-label="Analyze and Post Note"
             >
               {isPending ? (
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               ) : (
                 <SendHorizonal className="mr-2 h-5 w-5" />
               )}
-              Analyze & Post
+              Analyze & Save
             </Button>
           </CardFooter>
         </form>
@@ -170,13 +166,13 @@ export function TweetComposer() {
                 Content Suggestion
               </AlertDialogTitle>
               <AlertDialogDescription>
-                {aiResult.explanation || "Our AI has reviewed your tweet."}
+                {aiResult.explanation || "Our AI has reviewed your note."}
               </AlertDialogDescription>
             </AlertDialogHeader>
             
             <div className="my-4 space-y-3 text-sm">
               <div>
-                <p className="font-medium text-muted-foreground">Original Tweet:</p>
+                <p className="font-medium text-muted-foreground">Original Note:</p>
                 <p className="p-2 bg-muted rounded-md break-words">{tweetToSubmit}</p>
               </div>
               {aiResult.isOffensive && aiResult.rephrasedTweet && (
@@ -191,13 +187,13 @@ export function TweetComposer() {
 
             <AlertDialogFooter className="gap-2 sm:gap-0">
               <Button variant="outline" onClick={() => handleAiDialogAction("edit")}>Edit Manually</Button>
-              <Button variant="ghost" onClick={() => handleAiDialogAction("post_original")}>Post Original Anyway</Button>
+              <Button variant="ghost" onClick={() => handleAiDialogAction("post_original")}>Save Original Anyway</Button>
               {aiResult.isOffensive && aiResult.rephrasedTweet && (
                 <Button 
                   className="bg-accent hover:bg-accent/90 text-accent-foreground"
                   onClick={() => handleAiDialogAction("use_suggestion")}
                 >
-                  Use Suggestion & Post
+                  Use Suggestion & Save
                 </Button>
               )}
             </AlertDialogFooter>

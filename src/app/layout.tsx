@@ -9,8 +9,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'TweetShell',
-  description: 'Compose and post your tweets effortlessly.',
+  title: 'Personal Notes',
+  description: 'Jot down your thoughts and ideas.',
 };
 
 export default function RootLayout({
