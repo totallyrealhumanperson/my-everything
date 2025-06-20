@@ -11,7 +11,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import type { Timestamp } from 'firebase/firestore';
+// Removed unused Timestamp import
 
 
 const FilterOffensiveLanguageInputSchema = z.object({
@@ -36,14 +36,7 @@ export async function filterOffensiveLanguage(
   return filterOffensiveLanguageFlow(input);
 }
 
-// This interface is defined in actions.ts but needed here for type consistency for the component
-// It's not directly used by the AI flow itself but is related to data structures in the app
-export interface DraftClient {
-  id: string;
-  userId: string;
-  content: string;
-  createdAt: string; // ISO string
-}
+// Removed unused DraftClient interface definition
 
 
 const prompt = ai.definePrompt({
@@ -71,3 +64,4 @@ const filterOffensiveLanguageFlow = ai.defineFlow(
     return output!;
   }
 );
+
