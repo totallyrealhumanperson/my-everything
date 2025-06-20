@@ -126,8 +126,8 @@ export async function getDrafts(userId: string): Promise<DraftClient[]> {
   console.log(`[actions.ts getDrafts] Attempting to fetch drafts for userId: ${userId}`);
   try {
     const draftsRef = collection(db, "drafts");
-    // Temporarily remove orderBy to diagnose indexing issue
-    const q = query(draftsRef, where("userId", "==", userId) /*, orderBy("createdAt", "desc")*/);
+    // Restore orderBy, assuming composite index is created by the user
+    const q = query(draftsRef, where("userId", "==", userId), orderBy("createdAt", "desc"));
     const querySnapshot = await getDocs(q);
 
     if (querySnapshot.empty) {
@@ -206,3 +206,4 @@ export async function deleteDraft(draftId: string): Promise<{ success: boolean; 
     return { success: false, message: "Failed to delete draft. Please try again." };
   }
 }
+
