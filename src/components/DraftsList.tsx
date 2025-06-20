@@ -8,8 +8,19 @@ import { useEffect, useState, useTransition, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Trash2, Send, FileText, AlertTriangle } from "lucide-react";
+import { Loader2, Trash2, Send, FileText, AlertTriangle, Eye, ClipboardCopy } from "lucide-react";
 import { formatDistanceToNow } from 'date-fns';
 
 interface DraftsListProps {
@@ -25,6 +36,7 @@ export function DraftsList({ refreshKey }: DraftsListProps) {
   const [isPosting, startPosting] = useTransition();
   const [postingDraftId, setPostingDraftId] = useState<string | null>(null);
   const [deletingDraftId, setDeletingDraftId] = useState<string | null>(null);
+  const [viewingDraft, setViewingDraft] = useState<DraftClient | null>(null);
 
 
   const fetchDrafts = useCallback(async () => {
@@ -47,18 +59,17 @@ export function DraftsList({ refreshKey }: DraftsListProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [user, toast, refreshKey]); // Added refreshKey to dependencies as its change should trigger fetch logic
+  }, [user, toast, refreshKey]); 
 
   useEffect(() => {
     console.log("[DraftsList] useEffect: Triggered. User:", user ? user.uid : "null", "Refresh key:", refreshKey);
-    if (user) { // Ensure user is available before fetching
+    if (user) { 
       fetchDrafts();
     } else {
-      // If user becomes null (e.g., logout), clear drafts and stop loading
       setDrafts([]);
       setIsLoading(false);
     }
-  }, [user, fetchDrafts, refreshKey]); // fetchDrafts is now stable due to useCallback, refreshKey triggers re-fetch
+  }, [user, fetchDrafts, refreshKey]); 
 
   const handleDeleteDraft = (draftId: string) => {
     setDeletingDraftId(draftId);
@@ -93,7 +104,17 @@ export function DraftsList({ refreshKey }: DraftsListProps) {
     });
   };
 
-  if (!user && !isLoading) { // If not loading and no user, don't render anything
+  const handleCopyDraft = async (content: string) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      toast({ title: "Success", description: "Draft content copied to clipboard!" });
+    } catch (err) {
+      console.error('Failed to copy text: ', err);
+      toast({ title: "Error", description: "Failed to copy draft content.", variant: "destructive" });
+    }
+  };
+
+  if (!user && !isLoading) { 
     return null;
   }
   
@@ -127,57 +148,93 @@ export function DraftsList({ refreshKey }: DraftsListProps) {
   }
 
   return (
-    <Card className="w-full max-w-xl mt-8 shadow-lg">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-xl font-headline">
-          <FileText className="h-5 w-5 text-primary" />
-          Saved Drafts
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Content</TableHead>
-              <TableHead className="w-[120px] text-center hidden sm:table-cell">Saved</TableHead>
-              <TableHead className="w-[180px] text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {drafts.map((draft) => (
-              <TableRow key={draft.id}>
-                <TableCell className="font-medium break-all max-w-[200px] sm:max-w-none">
-                  {draft.content.length > 70 ? `${draft.content.substring(0, 67)}...` : draft.content}
-                </TableCell>
-                <TableCell className="text-muted-foreground text-center hidden sm:table-cell">
-                  {draft.createdAt ? formatDistanceToNow(new Date(draft.createdAt), { addSuffix: true }) : 'Just now'}
-                </TableCell>
-                <TableCell className="text-right space-x-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handlePostDraftToX(draft)}
-                    disabled={isPosting && postingDraftId === draft.id}
-                    aria-label="Post to X"
-                  >
-                    {isPosting && postingDraftId === draft.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4 text-primary" />}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDeleteDraft(draft.id)}
-                    disabled={isDeleting && deletingDraftId === draft.id}
-                    aria-label="Delete Draft"
-                  >
-                     {isDeleting && deletingDraftId === draft.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4 text-destructive" />}
-                  </Button>
-                </TableCell>
+    <>
+      <Card className="w-full max-w-xl mt-8 shadow-lg">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-xl font-headline">
+            <FileText className="h-5 w-5 text-primary" />
+            Saved Drafts
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Content</TableHead>
+                <TableHead className="w-[120px] text-center hidden sm:table-cell">Saved</TableHead>
+                <TableHead className="w-[220px] text-right">Actions</TableHead> 
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+            </TableHeader>
+            <TableBody>
+              {drafts.map((draft) => (
+                <TableRow key={draft.id}>
+                  <TableCell className="font-medium break-all max-w-[150px] sm:max-w-[200px] md:max-w-xs">
+                    {draft.content.length > 50 ? `${draft.content.substring(0, 47)}...` : draft.content}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-center hidden sm:table-cell">
+                    {draft.createdAt ? formatDistanceToNow(new Date(draft.createdAt), { addSuffix: true }) : 'Just now'}
+                  </TableCell>
+                  <TableCell className="text-right space-x-1">
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setViewingDraft(draft)}
+                        aria-label="View Full Draft"
+                      >
+                        <Eye className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleCopyDraft(draft.content)}
+                      aria-label="Copy Draft Content"
+                    >
+                      <ClipboardCopy className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handlePostDraftToX(draft)}
+                      disabled={isPosting && postingDraftId === draft.id}
+                      aria-label="Post to X"
+                    >
+                      {isPosting && postingDraftId === draft.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4 text-primary" />}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDeleteDraft(draft.id)}
+                      disabled={isDeleting && deletingDraftId === draft.id}
+                      aria-label="Delete Draft"
+                    >
+                       {isDeleting && deletingDraftId === draft.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4 text-destructive" />}
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {viewingDraft && (
+        <AlertDialog open={!!viewingDraft} onOpenChange={(open) => !open && setViewingDraft(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Full Draft Content</AlertDialogTitle>
+              <AlertDialogDescription className="max-h-[60vh] overflow-y-auto whitespace-pre-wrap break-words py-2">
+                {viewingDraft.content}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setViewingDraft(null)}>Close</AlertDialogCancel>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+    </>
   );
 }
-
+    
