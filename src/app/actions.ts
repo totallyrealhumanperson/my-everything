@@ -210,7 +210,7 @@ export async function getDrafts(userId: string): Promise<DraftClient[]> {
   } catch (error) {
     console.error("[actions.ts getDrafts] Error fetching or processing drafts:", error);
     if ((error as any)?.code === 'permission-denied') {
-        console.error("[actions.ts getDrafts] Firestore permission denied. Check your security rules.");
+        console.error("[actions.ts getDrafts] Firestore permission denied. Check your security rules for 'drafts' collection.");
     }
     return []; 
   }
@@ -247,6 +247,10 @@ export async function getPostedTweetCount(userId: string): Promise<number> {
     return count;
   } catch (error) {
     console.error(`[actions.ts getPostedTweetCount] Error fetching tweet count for userId ${userId}:`, error);
+    if ((error as any)?.code === 'permission-denied') {
+        console.error("[actions.ts getPostedTweetCount] Firestore permission denied. Check your security rules for 'postedTweets' collection.");
+    }
     return 0; // Return 0 in case of error
   }
 }
+
