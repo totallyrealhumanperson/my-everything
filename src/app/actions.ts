@@ -145,15 +145,12 @@ export async function getDrafts(userId: string): Promise<DraftClient[]> {
     console.log("[actions.ts getDrafts] No user ID provided. Returning empty array.");
     return [];
   }
-  // This log is helpful for you to see which UserID is being queried for.
-  console.log(`[actions.ts getDrafts] Attempting to fetch drafts for userId: ${userId} (Simplified Query)`);
+  console.log(`[actions.ts getDrafts] Attempting to fetch drafts for userId: ${userId}`);
   try {
     const draftsRef = collection(db, "drafts");
-    // Temporarily remove orderBy for diagnostics
-    const q = query(draftsRef, where("userId", "==", userId));
+    const q = query(draftsRef, where("userId", "==", userId), orderBy("createdAt", "desc"));
     const querySnapshot = await getDocs(q);
 
-    // This log is critical. It tells us if Firestore found any documents.
     console.log(`[actions.ts getDrafts] Query for userId ${userId} - Snapshot empty: ${querySnapshot.empty}, Size: ${querySnapshot.size}`);
 
     if (querySnapshot.empty) {
@@ -164,31 +161,32 @@ export async function getDrafts(userId: string): Promise<DraftClient[]> {
     const drafts: DraftClient[] = [];
     querySnapshot.forEach((docSnap) => {
       const data = docSnap.data();
-      // Log the raw data to see what Firestore is returning
       console.log(`[actions.ts getDrafts] Raw data for draft ${docSnap.id}:`, JSON.stringify(data));
       
       let createdAtISO = new Date().toISOString(); // Fallback
-      if (data.createdAt && data.createdAt.seconds) { // Basic check for Firestore Timestamp
+      if (data.createdAt && typeof data.createdAt.seconds === 'number') {
          try {
-            createdAtISO = new Date(data.createdAt.seconds * 1000).toISOString();
+            createdAtISO = new Date(data.createdAt.seconds * 1000 + (data.createdAt.nanoseconds || 0) / 1000000).toISOString();
          } catch (e) {
-            console.error(`[actions.ts getDrafts] Error converting timestamp for draft ${docSnap.id}`, e);
+            console.error(`[actions.ts getDrafts] Error converting Firestore Timestamp for draft ${docSnap.id}`, e);
          }
-      } else if (data.createdAt) {
-        console.warn(`[actions.ts getDrafts] Unusual createdAt format for draft ${docSnap.id}:`, data.createdAt);
-        // Attempt to parse if it's a string or number, otherwise use fallback
+      } else if (data.createdAt) { // Handle if createdAt is already a string or number (e.g. from older data)
+        console.warn(`[actions.ts getDrafts] Unusual or non-Timestamp createdAt format for draft ${docSnap.id}:`, data.createdAt);
         try {
           const parsedDate = new Date(data.createdAt);
           if (!isNaN(parsedDate.getTime())) {
             createdAtISO = parsedDate.toISOString();
           }
-        } catch (e) { /* ignore parsing error, use fallback */ }
+        } catch (e) {
+          console.error(`[actions.ts getDrafts] Error parsing non-standard date for draft ${docSnap.id}`, e);
+        }
       }
+
 
       drafts.push({
         id: docSnap.id,
-        userId: data.userId || "UNKNOWN_USER_ID_IN_DRAFT", // Fallback
-        content: data.content || "NO_CONTENT_IN_DRAFT", // Fallback
+        userId: data.userId || "UNKNOWN_USER_ID_IN_DRAFT",
+        content: data.content || "NO_CONTENT_IN_DRAFT",
         createdAt: createdAtISO,
       });
     });
@@ -196,7 +194,9 @@ export async function getDrafts(userId: string): Promise<DraftClient[]> {
     return drafts;
   } catch (error: any) {
     console.error("[actions.ts getDrafts] Error fetching or processing drafts:", error.message, error.stack);
-    // If an error occurs, return an empty array to prevent app crash
+    if ((error as any)?.code === 'failed-precondition') {
+        console.error("[actions.ts getDrafts] Firestore 'failed-precondition' error. This often means a required composite index is missing or still building. Please check your Firestore indexes for the 'drafts' collection, ensuring an index exists for 'userId' (ASC) and 'createdAt' (DESC).");
+    }
     return [];
   }
 }
