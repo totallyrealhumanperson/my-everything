@@ -86,11 +86,17 @@ export function DraftsList({ refreshKey }: DraftsListProps) {
   };
 
   const handlePostDraftToX = (draft: DraftClient) => {
+    if (!user) {
+      toast({ title: "Authentication Error", description: "You must be logged in to post.", variant: "destructive" });
+      return;
+    }
     setPostingDraftId(draft.id);
     startPosting(async () => {
-      const result = await submitTweet(draft.content);
+      // Pass user.uid to submitTweet
+      const result = await submitTweet(draft.content, user.uid); 
       if (result.success) {
         toast({ title: "Success!", description: result.message });
+        // Consider refreshing tweet count here if onTweetPosted is passed as a prop
         const deleteResult = await deleteDraft(draft.id);
         if (deleteResult.success) {
           setDrafts((prevDrafts) => prevDrafts.filter(d => d.id !== draft.id));
@@ -152,8 +158,6 @@ export function DraftsList({ refreshKey }: DraftsListProps) {
       if (!open) {
         setViewingDraft(null);
       }
-      // If you need to control opening via a state variable for AlertDialogTrigger:
-      // else if (open && !viewingDraft) { /* logic to find a draft to view if needed */ }
     }}>
       <Card className="w-full max-w-xl mt-8 shadow-lg">
         <CardHeader>
@@ -225,7 +229,6 @@ export function DraftsList({ refreshKey }: DraftsListProps) {
         </CardContent>
       </Card>
 
-      {/* AlertDialogContent is now a direct child of AlertDialog */}
       {viewingDraft && ( 
         <AlertDialogContent>
           <AlertDialogHeader>

@@ -43,7 +43,6 @@ export async function analyzeTweetSentiment(data: FilterOffensiveLanguageInput):
 }
 
 const getTwitterClient = async () => {
-  // Dynamically import TwitterApi only when the function is called
   const { TwitterApi } = await import('twitter-api-v2');
 
   if (
@@ -73,7 +72,7 @@ export async function submitTweet(tweetContent: string, userId: string): Promise
   if (!tweetContent || tweetContent.trim().length === 0) {
     return { success: false, message: "Note content cannot be empty." };
   }
-  if (tweetContent.length > 280) { // X character limit
+  if (tweetContent.length > 280) {
     return { success: false, message: "Note exceeds 280 characters." };
   }
 
@@ -82,7 +81,6 @@ export async function submitTweet(tweetContent: string, userId: string): Promise
     const { data: createdTweet } = await twitterClient.v2.tweet(tweetContent);
     console.log(`[actions.ts submitTweet] Tweet Posted! ID: ${createdTweet.id}, Content: "${createdTweet.text}"`);
 
-    // Save to postedTweets collection
     try {
       await addDoc(collection(db, "postedTweets"), {
         userId: userId,
@@ -93,8 +91,6 @@ export async function submitTweet(tweetContent: string, userId: string): Promise
       console.log(`[actions.ts submitTweet] Tweet metadata saved to Firestore for userId ${userId}.`);
     } catch (firestoreError) {
       console.error("[actions.ts submitTweet] Error saving tweet metadata to Firestore:", firestoreError);
-      // Do not fail the whole operation if Firestore save fails, but log it.
-      // The primary goal was to post to X.
     }
 
     return { success: true, message: "Tweet successfully posted to X!", tweetId: createdTweet.id };
@@ -146,73 +142,62 @@ export async function saveDraft(noteContent: string, userId: string): Promise<{ 
 
 export async function getDrafts(userId: string): Promise<DraftClient[]> {
   if (!userId) {
-    console.log("[actions.ts getDrafts] No user ID provided to getDrafts. Returning empty array.");
+    console.log("[actions.ts getDrafts] No user ID provided. Returning empty array.");
     return [];
   }
-  console.log(`[actions.ts getDrafts] Attempting to fetch drafts for userId: ${userId}`);
+  // This log is helpful for you to see which UserID is being queried for.
+  console.log(`[actions.ts getDrafts] Attempting to fetch drafts for userId: ${userId} (Simplified Query)`);
   try {
     const draftsRef = collection(db, "drafts");
-    const q = query(draftsRef, where("userId", "==", userId), orderBy("createdAt", "desc"));
+    // Temporarily remove orderBy for diagnostics
+    const q = query(draftsRef, where("userId", "==", userId));
     const querySnapshot = await getDocs(q);
 
+    // This log is critical. It tells us if Firestore found any documents.
+    console.log(`[actions.ts getDrafts] Query for userId ${userId} - Snapshot empty: ${querySnapshot.empty}, Size: ${querySnapshot.size}`);
+
     if (querySnapshot.empty) {
-      console.log(`[actions.ts getDrafts] Firestore query returned no documents (empty) for userId: ${userId}`);
-    } else {
-      console.log(`[actions.ts getDrafts] Firestore query returned ${querySnapshot.size} documents for userId: ${userId}`);
+      console.log(`[actions.ts getDrafts] Firestore query returned no documents for userId: ${userId}.`);
+      return [];
     }
 
     const drafts: DraftClient[] = [];
-    querySnapshot.forEach((doc) => {
-      const data = doc.data();
-      // console.log(`[actions.ts getDrafts] Processing draft ${doc.id}, raw data:`, JSON.stringify(data));
-
-      let createdAtISO = new Date().toISOString(); 
-
-      if (data.createdAt && typeof (data.createdAt as Timestamp).toDate === 'function') {
-        try {
-          createdAtISO = (data.createdAt as Timestamp).toDate().toISOString();
-        } catch (e) {
-          console.error(`[actions.ts getDrafts] Error converting Firestore Timestamp to ISOString for draft ${doc.id}:`, e);
-        }
+    querySnapshot.forEach((docSnap) => {
+      const data = docSnap.data();
+      // Log the raw data to see what Firestore is returning
+      console.log(`[actions.ts getDrafts] Raw data for draft ${docSnap.id}:`, JSON.stringify(data));
+      
+      let createdAtISO = new Date().toISOString(); // Fallback
+      if (data.createdAt && data.createdAt.seconds) { // Basic check for Firestore Timestamp
+         try {
+            createdAtISO = new Date(data.createdAt.seconds * 1000).toISOString();
+         } catch (e) {
+            console.error(`[actions.ts getDrafts] Error converting timestamp for draft ${docSnap.id}`, e);
+         }
       } else if (data.createdAt) {
-        // console.warn(`[actions.ts getDrafts] Draft ${doc.id} has 'createdAt' field, but it's not a Firestore Timestamp object. Value:`, data.createdAt);
-        if (typeof data.createdAt === 'string') {
-          try {
-            const parsedDate = new Date(data.createdAt);
-            if (!isNaN(parsedDate.getTime())) {
-              createdAtISO = parsedDate.toISOString();
-            } else {
-              //  console.warn(`[actions.ts getDrafts] Draft ${doc.id} 'createdAt' string is not a valid ISO date. Defaulting to current time.`);
-            }
-          } catch (e) {
-            //  console.warn(`[actions.ts getDrafts] Error parsing 'createdAt' string for draft ${doc.id}. Defaulting.`, e);
+        console.warn(`[actions.ts getDrafts] Unusual createdAt format for draft ${docSnap.id}:`, data.createdAt);
+        // Attempt to parse if it's a string or number, otherwise use fallback
+        try {
+          const parsedDate = new Date(data.createdAt);
+          if (!isNaN(parsedDate.getTime())) {
+            createdAtISO = parsedDate.toISOString();
           }
-        } else if (typeof data.createdAt === 'number') { 
-             try {
-                createdAtISO = new Date(data.createdAt).toISOString();
-             } catch(e) {
-                //  console.warn(`[actions.ts getDrafts] Error converting numeric 'createdAt' for draft ${doc.id}. Defaulting.`, e);
-             }
-        }
-      } else {
-        //  console.warn(`[actions.ts getDrafts] Draft ${doc.id} is missing 'createdAt' field. Defaulting to current time.`);
+        } catch (e) { /* ignore parsing error, use fallback */ }
       }
 
       drafts.push({
-        id: doc.id,
-        userId: data.userId,
-        content: data.content,
+        id: docSnap.id,
+        userId: data.userId || "UNKNOWN_USER_ID_IN_DRAFT", // Fallback
+        content: data.content || "NO_CONTENT_IN_DRAFT", // Fallback
         createdAt: createdAtISO,
       });
     });
-    // console.log(`[actions.ts getDrafts] Successfully processed ${drafts.length} drafts for client:`, drafts.map(d => d.id).join(', '));
+    console.log(`[actions.ts getDrafts] Successfully processed ${drafts.length} drafts for client.`);
     return drafts;
-  } catch (error) {
-    console.error("[actions.ts getDrafts] Error fetching or processing drafts:", error);
-    if ((error as any)?.code === 'permission-denied') {
-        console.error("[actions.ts getDrafts] Firestore permission denied. Check your security rules for 'drafts' collection.");
-    }
-    return []; 
+  } catch (error: any) {
+    console.error("[actions.ts getDrafts] Error fetching or processing drafts:", error.message, error.stack);
+    // If an error occurs, return an empty array to prevent app crash
+    return [];
   }
 }
 
@@ -250,7 +235,6 @@ export async function getPostedTweetCount(userId: string): Promise<number> {
     if ((error as any)?.code === 'permission-denied') {
         console.error("[actions.ts getPostedTweetCount] Firestore permission denied. Check your security rules for 'postedTweets' collection.");
     }
-    return 0; // Return 0 in case of error
+    return 0;
   }
 }
-
