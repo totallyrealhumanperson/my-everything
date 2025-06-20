@@ -29,26 +29,36 @@ export function DraftsList({ refreshKey }: DraftsListProps) {
 
   const fetchDrafts = useCallback(async () => {
     if (!user) {
+      console.log("[DraftsList] fetchDrafts: No user, clearing drafts.");
       setDrafts([]);
       setIsLoading(false);
       return;
     }
+    console.log(`[DraftsList] fetchDrafts: Called for user ${user.uid}. Refresh key: ${refreshKey}`);
     setIsLoading(true);
     try {
       const userDrafts = await getDrafts(user.uid);
+      console.log("[DraftsList] fetchDrafts: Received drafts from server action:", userDrafts);
       setDrafts(userDrafts);
     } catch (error) {
-      console.error("Failed to fetch drafts:", error);
+      console.error("[DraftsList] fetchDrafts: Failed to fetch drafts:", error);
       toast({ title: "Error", description: "Could not fetch drafts.", variant: "destructive" });
       setDrafts([]);
     } finally {
       setIsLoading(false);
     }
-  }, [user, toast]);
+  }, [user, toast, refreshKey]); // Added refreshKey to dependencies as its change should trigger fetch logic
 
   useEffect(() => {
-    fetchDrafts();
-  }, [user, fetchDrafts, refreshKey]);
+    console.log("[DraftsList] useEffect: Triggered. User:", user ? user.uid : "null", "Refresh key:", refreshKey);
+    if (user) { // Ensure user is available before fetching
+      fetchDrafts();
+    } else {
+      // If user becomes null (e.g., logout), clear drafts and stop loading
+      setDrafts([]);
+      setIsLoading(false);
+    }
+  }, [user, fetchDrafts, refreshKey]); // fetchDrafts is now stable due to useCallback, refreshKey triggers re-fetch
 
   const handleDeleteDraft = (draftId: string) => {
     setDeletingDraftId(draftId);
@@ -70,7 +80,6 @@ export function DraftsList({ refreshKey }: DraftsListProps) {
       const result = await submitTweet(draft.content);
       if (result.success) {
         toast({ title: "Success!", description: result.message });
-        // Optionally delete draft after successful post
         const deleteResult = await deleteDraft(draft.id);
         if (deleteResult.success) {
           setDrafts((prevDrafts) => prevDrafts.filter(d => d.id !== draft.id));
@@ -84,10 +93,10 @@ export function DraftsList({ refreshKey }: DraftsListProps) {
     });
   };
 
-  if (!user) {
-    return null; // Don't show if not logged in
+  if (!user && !isLoading) { // If not loading and no user, don't render anything
+    return null;
   }
-
+  
   if (isLoading) {
     return (
       <div className="w-full max-w-xl mt-8 flex justify-center items-center">
@@ -141,7 +150,7 @@ export function DraftsList({ refreshKey }: DraftsListProps) {
                   {draft.content.length > 70 ? `${draft.content.substring(0, 67)}...` : draft.content}
                 </TableCell>
                 <TableCell className="text-muted-foreground text-center hidden sm:table-cell">
-                  {formatDistanceToNow(new Date(draft.createdAt), { addSuffix: true })}
+                  {draft.createdAt ? formatDistanceToNow(new Date(draft.createdAt), { addSuffix: true }) : 'Just now'}
                 </TableCell>
                 <TableCell className="text-right space-x-1">
                   <Button
@@ -171,3 +180,4 @@ export function DraftsList({ refreshKey }: DraftsListProps) {
     </Card>
   );
 }
+
