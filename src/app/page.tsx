@@ -1,10 +1,11 @@
 
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { TweetComposer } from '@/components/tweet-composer';
+import { DraftsList } from '@/components/DraftsList'; // New import
 import { TweetShellLogo } from '@/components/icons/logo';
 import { Button } from '@/components/ui/button';
 import { Loader2, LogOut } from 'lucide-react';
@@ -13,6 +14,7 @@ import { ThemeToggle } from '@/components/theme-toggle';
 export default function HomePage() {
   const { user, loading, signOutUser } = useAuth();
   const router = useRouter();
+  const [draftsRefreshKey, setDraftsRefreshKey] = useState(0);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -29,6 +31,10 @@ export default function HomePage() {
       // Handle logout error, maybe show a toast
     }
   };
+
+  const handleDraftSaved = useCallback(() => {
+    setDraftsRefreshKey(prevKey => prevKey + 1);
+  }, []);
 
   if (loading) {
     return (
@@ -65,10 +71,11 @@ export default function HomePage() {
           </div>
         </div>
         <p className="text-base sm:text-lg text-muted-foreground text-center">
-          Welcome, {user.email}! Jot down your thoughts and ideas.
+          Welcome, {user.email}! Jot down your thoughts, save drafts, and post to X.
         </p>
       </header>
-      <TweetComposer />
+      <TweetComposer onDraftSaved={handleDraftSaved} />
+      <DraftsList refreshKey={draftsRefreshKey} />
       <footer className="mt-12 text-center text-sm text-muted-foreground">
         <p>&copy; {new Date().getFullYear()} Personal Notes. All rights reserved (sort of).</p>
         <p>Powered by AI and your brilliant thoughts.</p>

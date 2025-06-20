@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, type Dispatch, type SetStateAction } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -11,8 +11,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { analyzeTweetSentiment, submitTweet } from "@/app/actions";
-import type { FilterOffensiveLanguageOutput } from "@/ai/flows/filter-offensive-language";
+import { analyzeTweetSentiment, submitTweet, saveDraft } from "@/app/actions";
+import type { FilterOffensiveLanguageOutput, DraftClient } from "@/ai/flows/filter-offensive-language";
+import { useAuth } from "@/contexts/auth-context";
+
 
 import {
   AlertDialog,
@@ -24,7 +26,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { SendHorizonal, Sparkles, Loader2, Info } from "lucide-react";
+import { SendHorizonal, Sparkles, Loader2, Info, Save } from "lucide-react";
 
 const tweetSchema = z.object({
   text: z.string().min(1, "Note cannot be empty.").max(280, "Note cannot exceed 280 characters for X."),
@@ -34,9 +36,15 @@ type TweetFormData = z.infer<typeof tweetSchema>;
 
 const MAX_CHARS = 280;
 
-export function TweetComposer() {
-  const [isPending, startTransition] = useTransition();
+interface TweetComposerProps {
+  onDraftSaved?: () => void; // Callback to refresh drafts list
+}
+
+export function TweetComposer({ onDraftSaved }: TweetComposerProps) {
+  const [isSubmittingToX, startSubmittingToX] = useTransition();
+  const [isSavingDraft, startSavingDraft] = useTransition();
   const { toast } = useToast();
+  const { user } = useAuth();
   
   const form = useForm<TweetFormData>({
     resolver: zodResolver(tweetSchema),
@@ -50,21 +58,21 @@ export function TweetComposer() {
 
   const [aiResult, setAiResult] = useState<FilterOffensiveLanguageOutput | null>(null);
   const [showAiDialog, setShowAiDialog] = useState(false);
-  const [tweetToSubmit, setTweetToSubmit] = useState("");
+  const [tweetToSubmitToX, setTweetToSubmitToX] = useState("");
 
-  const handleActualSubmit = (finalText: string) => {
-    startTransition(async () => {
+  const handleActualSubmitToX = (finalText: string) => {
+    startSubmittingToX(async () => {
       const result = await submitTweet(finalText);
       if (result.success) {
         toast({
           title: "Success!",
-          description: result.message, // Should now be "Tweet successfully posted!"
+          description: result.message, 
         });
         form.reset();
         setAiResult(null);
       } else {
         toast({
-          title: "Error",
+          title: "Error Posting to X",
           description: result.message,
           variant: "destructive",
         });
@@ -73,25 +81,50 @@ export function TweetComposer() {
     });
   };
 
-  const onSubmit: SubmitHandler<TweetFormData> = (data) => {
-    setTweetToSubmit(data.text); 
-    startTransition(async () => {
+  const onSubmitToX: SubmitHandler<TweetFormData> = (data) => {
+    setTweetToSubmitToX(data.text); 
+    startSubmittingToX(async () => {
       const analysisResult = await analyzeTweetSentiment({ tweet: data.text });
       setAiResult(analysisResult);
       if (analysisResult.isOffensive) {
         setShowAiDialog(true);
       } else {
-        handleActualSubmit(data.text);
+        handleActualSubmitToX(data.text);
       }
     });
   };
 
+  const handleSaveDraft: SubmitHandler<TweetFormData> = (data) => {
+    if (!user) {
+      toast({ title: "Error", description: "You must be logged in to save drafts.", variant: "destructive" });
+      return;
+    }
+    startSavingDraft(async () => {
+      const result = await saveDraft(data.text, user.uid);
+      if (result.success) {
+        toast({
+          title: "Draft Saved!",
+          description: result.message,
+        });
+        form.reset();
+        onDraftSaved?.(); // Call the callback to refresh drafts
+      } else {
+        toast({
+          title: "Error Saving Draft",
+          description: result.message,
+          variant: "destructive",
+        });
+      }
+    });
+  };
+
+
   const handleAiDialogAction = (action: "use_suggestion" | "post_original" | "edit") => {
     if (action === "use_suggestion" && aiResult?.rephrasedTweet) {
       form.setValue("text", aiResult.rephrasedTweet); 
-      handleActualSubmit(aiResult.rephrasedTweet); 
+      handleActualSubmitToX(aiResult.rephrasedTweet); 
     } else if (action === "post_original") {
-      handleActualSubmit(tweetToSubmit); 
+      handleActualSubmitToX(tweetToSubmitToX); 
     }
     setShowAiDialog(false);
   };
@@ -102,6 +135,8 @@ export function TweetComposer() {
     return "text-muted-foreground";
   };
 
+  const isPending = isSubmittingToX || isSavingDraft;
+
   return (
     <>
       <Card className="w-full max-w-xl shadow-xl">
@@ -111,7 +146,7 @@ export function TweetComposer() {
             Compose Note for X
           </CardTitle>
         </CardHeader>
-        <form onSubmit={form.handleSubmit(onSubmit)}>
+        <form>
           <CardContent>
             <div className="grid w-full gap-2">
               <Label htmlFor="tweet-text" className="sr-only">Note content</Label>
@@ -139,19 +174,35 @@ export function TweetComposer() {
               </div>
             </div>
           </CardContent>
-          <CardFooter>
+          <CardFooter className="flex flex-col sm:flex-row gap-2">
             <Button 
-              type="submit" 
-              className="w-full text-lg py-6"
-              disabled={isPending || charCount === 0 || charCount > MAX_CHARS}
+              type="button"
+              variant="outline"
+              className="w-full sm:w-auto text-lg py-6"
+              onClick={form.handleSubmit(handleSaveDraft)}
+              disabled={isPending || charCount === 0 || charCount > MAX_CHARS || !user}
+              aria-label="Save as Draft"
+            >
+              {isSavingDraft ? (
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              ) : (
+                <Save className="mr-2 h-5 w-5" />
+              )}
+              Save Draft
+            </Button>
+            <Button 
+              type="button"
+              className="w-full sm:flex-grow text-lg py-6"
+              onClick={form.handleSubmit(onSubmitToX)}
+              disabled={isPending || charCount === 0 || charCount > MAX_CHARS || !user}
               aria-label="Analyze and Post Note to X"
             >
-              {isPending ? (
+              {isSubmittingToX ? (
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               ) : (
                 <SendHorizonal className="mr-2 h-5 w-5" />
               )}
-              Analyze & Post
+              Analyze & Post to X
             </Button>
           </CardFooter>
         </form>
@@ -173,7 +224,7 @@ export function TweetComposer() {
             <div className="my-4 space-y-3 text-sm">
               <div>
                 <p className="font-medium text-muted-foreground">Original Note:</p>
-                <p className="p-2 bg-muted rounded-md break-words">{tweetToSubmit}</p>
+                <p className="p-2 bg-muted rounded-md break-words">{tweetToSubmitToX}</p>
               </div>
               {aiResult.isOffensive && aiResult.rephrasedTweet && (
                  <div>
@@ -203,3 +254,4 @@ export function TweetComposer() {
     </>
   );
 }
+

@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -10,6 +11,8 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import type { Timestamp } from 'firebase/firestore';
+
 
 const FilterOffensiveLanguageInputSchema = z.object({
   tweet: z.string().describe('The tweet content to be filtered.'),
@@ -32,6 +35,16 @@ export async function filterOffensiveLanguage(
 ): Promise<FilterOffensiveLanguageOutput> {
   return filterOffensiveLanguageFlow(input);
 }
+
+// This interface is defined in actions.ts but needed here for type consistency for the component
+// It's not directly used by the AI flow itself but is related to data structures in the app
+export interface DraftClient {
+  id: string;
+  userId: string;
+  content: string;
+  createdAt: string; // ISO string
+}
+
 
 const prompt = ai.definePrompt({
   name: 'filterOffensiveLanguagePrompt',
