@@ -4,7 +4,7 @@
 import { filterOffensiveLanguage as aiFilter, type FilterOffensiveLanguageInput, type FilterOffensiveLanguageOutput } from "@/ai/flows/filter-offensive-language";
 import { db } from '@/lib/firebase';
 import { collection, addDoc, getDocs, query, where, orderBy, serverTimestamp, deleteDoc, doc, Timestamp } from 'firebase/firestore';
-import type { User } from 'firebase/auth';
+// Removed unused: import type { User } from 'firebase/auth';
 
 export interface Draft {
   id: string;
@@ -54,7 +54,7 @@ const getTwitterClient = async () => {
     accessToken: process.env.X_ACCESS_TOKEN as string,
     accessSecret: process.env.X_ACCESS_TOKEN_SECRET as string,
   });
-  return client.readWrite; 
+  return client.readWrite;
 };
 
 
@@ -76,8 +76,8 @@ export async function submitTweet(tweetContent: string): Promise<{ success: bool
   } catch (error) {
     console.error("Error posting tweet:", error);
     let errorMessage = "Failed to post tweet to X. Please try again.";
-    
-    const apiError = error as any; 
+
+    const apiError = error as any;
     if (apiError && typeof apiError === 'object' && apiError.isApiError) {
       if (apiError.data && (apiError.data.detail || apiError.data.title)) {
         errorMessage = apiError.data.detail || apiError.data.title || "X API Error";
@@ -85,7 +85,7 @@ export async function submitTweet(tweetContent: string): Promise<{ success: bool
     } else if (error instanceof Error) {
       errorMessage = error.message;
     }
-    
+
     return { success: false, message: errorMessage };
   }
 }
@@ -119,22 +119,69 @@ export async function getDrafts(userId: string): Promise<DraftClient[]> {
     console.log("No user ID provided to getDrafts");
     return [];
   }
+  console.log(`Attempting to fetch drafts for userId: ${userId}`);
   try {
     const draftsRef = collection(db, "drafts");
     const q = query(draftsRef, where("userId", "==", userId), orderBy("createdAt", "desc"));
     const querySnapshot = await getDocs(q);
+
+    console.log(`Firestore query returned ${querySnapshot.size} drafts for userId: ${userId}`);
+
     const drafts: DraftClient[] = [];
     querySnapshot.forEach((doc) => {
-      const data = doc.data() as Omit<Draft, 'id'>;
-      drafts.push({ 
-        id: doc.id, 
-        ...data,
-        createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+      const data = doc.data() as Omit<Draft, 'id' | 'userId' | 'content'> & { userId: string; content: string; createdAt: any }; // More flexible type for logging
+      console.log(`Processing draft ${doc.id}, raw data:`, JSON.stringify(data));
+
+      let createdAtISO = new Date().toISOString(); // Default to now if conversion fails or field is missing
+
+      if (data.createdAt && typeof (data.createdAt as Timestamp).toDate === 'function') {
+        try {
+          createdAtISO = (data.createdAt as Timestamp).toDate().toISOString();
+        } catch (e) {
+          console.error(`Error converting Firestore Timestamp to ISOString for draft ${doc.id}:`, e);
+          // createdAtISO remains the default (current time)
+        }
+      } else if (data.createdAt) {
+        // If createdAt exists but is not a Timestamp object (e.g., already a string or number)
+        console.warn(`Draft ${doc.id} has 'createdAt' field, but it's not a Firestore Timestamp object. Value:`, data.createdAt);
+        if (typeof data.createdAt === 'string') {
+          try {
+            // Attempt to parse if it's a valid ISO string
+            const parsedDate = new Date(data.createdAt);
+            if (!isNaN(parsedDate.getTime())) {
+              createdAtISO = parsedDate.toISOString();
+            } else {
+              console.warn(`Draft ${doc.id} 'createdAt' string is not a valid ISO date. Defaulting to current time.`);
+            }
+          } catch (e) {
+            console.warn(`Error parsing 'createdAt' string for draft ${doc.id}. Defaulting.`, e);
+          }
+        } else if (typeof data.createdAt === 'number') { // Handle if it's a Unix timestamp (milliseconds)
+             try {
+                createdAtISO = new Date(data.createdAt).toISOString();
+             } catch(e) {
+                console.warn(`Error converting numeric 'createdAt' for draft ${doc.id}. Defaulting.`, e);
+             }
+        }
+      } else {
+         console.warn(`Draft ${doc.id} is missing 'createdAt' field. Defaulting to current time.`);
+      }
+
+      drafts.push({
+        id: doc.id,
+        userId: data.userId,
+        content: data.content,
+        createdAt: createdAtISO,
       });
     });
+    console.log(`Successfully processed ${drafts.length} drafts for client:`, drafts.map(d => d.id));
     return drafts;
   } catch (error) {
-    console.error("Error fetching drafts:", error);
+    console.error("Error fetching or processing drafts:", error);
+    // Check if it's a Firestore permission error specifically
+    if ((error as any)?.code === 'permission-denied') {
+        console.error("Firestore permission denied. Check your security rules.");
+    }
     return []; // Return empty array on error
   }
 }
@@ -151,3 +198,4 @@ export async function deleteDraft(draftId: string): Promise<{ success: boolean; 
     return { success: false, message: "Failed to delete draft. Please try again." };
   }
 }
+
