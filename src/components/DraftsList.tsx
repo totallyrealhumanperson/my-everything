@@ -148,7 +148,13 @@ export function DraftsList({ refreshKey }: DraftsListProps) {
   }
 
   return (
-    <>
+    <AlertDialog open={!!viewingDraft} onOpenChange={(open) => {
+      if (!open) {
+        setViewingDraft(null);
+      }
+      // If you need to control opening via a state variable for AlertDialogTrigger:
+      // else if (open && !viewingDraft) { /* logic to find a draft to view if needed */ }
+    }}>
       <Card className="w-full max-w-xl mt-8 shadow-lg">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-xl font-headline">
@@ -219,22 +225,21 @@ export function DraftsList({ refreshKey }: DraftsListProps) {
         </CardContent>
       </Card>
 
-      {viewingDraft && (
-        <AlertDialog open={!!viewingDraft} onOpenChange={(open) => !open && setViewingDraft(null)}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Full Draft Content</AlertDialogTitle>
-              <AlertDialogDescription className="max-h-[60vh] overflow-y-auto whitespace-pre-wrap break-words py-2">
-                {viewingDraft.content}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setViewingDraft(null)}>Close</AlertDialogCancel>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+      {/* AlertDialogContent is now a direct child of AlertDialog */}
+      {viewingDraft && ( 
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Full Draft Content</AlertDialogTitle>
+            <AlertDialogDescription className="max-h-[60vh] overflow-y-auto whitespace-pre-wrap break-words py-2">
+              {viewingDraft.content}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setViewingDraft(null)}>Close</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
       )}
-    </>
+    </AlertDialog>
   );
 }
     
