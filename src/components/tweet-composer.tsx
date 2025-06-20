@@ -12,7 +12,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { analyzeTweetSentiment, submitTweet, saveDraft } from "@/app/actions";
-import type { FilterOffensiveLanguageOutput } from "@/ai/flows/filter-offensive-language"; // DraftClient import removed as it's not used here
+import type { FilterOffensiveLanguageOutput } from "@/ai/flows/filter-offensive-language"; 
 import { useAuth } from "@/contexts/auth-context";
 
 
@@ -37,10 +37,11 @@ type TweetFormData = z.infer<typeof tweetSchema>;
 const MAX_CHARS = 280;
 
 interface TweetComposerProps {
-  onDraftSaved?: () => void; // Callback to refresh drafts list
+  onDraftSaved?: () => void; 
+  onTweetPosted?: () => void; // Callback to refresh tweet count
 }
 
-export function TweetComposer({ onDraftSaved }: TweetComposerProps) {
+export function TweetComposer({ onDraftSaved, onTweetPosted }: TweetComposerProps) {
   const [isSubmittingToX, startSubmittingToX] = useTransition();
   const [isSavingDraft, startSavingDraft] = useTransition();
   const { toast } = useToast();
@@ -61,8 +62,13 @@ export function TweetComposer({ onDraftSaved }: TweetComposerProps) {
   const [tweetToSubmitToX, setTweetToSubmitToX] = useState("");
 
   const handleActualSubmitToX = (finalText: string) => {
+    if (!user) {
+      toast({ title: "Error", description: "You must be logged in to post notes.", variant: "destructive" });
+      setShowAiDialog(false); // Ensure dialog closes
+      return;
+    }
     startSubmittingToX(async () => {
-      const result = await submitTweet(finalText);
+      const result = await submitTweet(finalText, user.uid); // Pass user.uid
       if (result.success) {
         toast({
           title: "Success!",
@@ -70,6 +76,7 @@ export function TweetComposer({ onDraftSaved }: TweetComposerProps) {
         });
         form.reset();
         setAiResult(null);
+        onTweetPosted?.(); // Call callback to refresh tweet count
       } else {
         toast({
           title: "Error Posting to X",
@@ -83,6 +90,10 @@ export function TweetComposer({ onDraftSaved }: TweetComposerProps) {
 
   const onSubmitToX: SubmitHandler<TweetFormData> = (data) => {
     setTweetToSubmitToX(data.text); 
+    if (!user) {
+       toast({ title: "Authentication Error", description: "You must be logged in to post.", variant: "destructive" });
+       return;
+    }
     startSubmittingToX(async () => {
       const analysisResult = await analyzeTweetSentiment({ tweet: data.text });
       setAiResult(analysisResult);
@@ -107,7 +118,7 @@ export function TweetComposer({ onDraftSaved }: TweetComposerProps) {
           description: result.message,
         });
         form.reset();
-        onDraftSaved?.(); // Call the callback to refresh drafts
+        onDraftSaved?.(); 
       } else {
         toast({
           title: "Error Saving Draft",
@@ -152,7 +163,7 @@ export function TweetComposer({ onDraftSaved }: TweetComposerProps) {
               <Label htmlFor="tweet-text" className="sr-only">Note content</Label>
               <Textarea
                 id="tweet-text"
-                placeholder="What's on your mind for X?"
+                placeholder="What are you silly?"
                 className="min-h-[120px] text-base resize-none focus:ring-2 focus:ring-primary"
                 {...form.register("text")}
                 aria-invalid={form.formState.errors.text ? "true" : "false"}
