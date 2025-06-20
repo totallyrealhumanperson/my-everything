@@ -12,7 +12,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { analyzeTweetSentiment, submitTweet, saveDraft } from "@/app/actions";
-import type { FilterOffensiveLanguageOutput, DraftClient } from "@/ai/flows/filter-offensive-language";
+import type { FilterOffensiveLanguageOutput } from "@/ai/flows/filter-offensive-language"; // DraftClient import removed as it's not used here
 import { useAuth } from "@/contexts/auth-context";
 
 
@@ -143,7 +143,7 @@ export function TweetComposer({ onDraftSaved }: TweetComposerProps) {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-2xl font-headline">
             <Sparkles className="h-6 w-6 text-primary" />
-            Compose Note for X
+            Send it
           </CardTitle>
         </CardHeader>
         <form>
@@ -254,4 +254,3 @@ export function TweetComposer({ onDraftSaved }: TweetComposerProps) {
     </>
   );
 }
-

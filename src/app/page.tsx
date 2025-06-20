@@ -5,7 +5,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { TweetComposer } from '@/components/tweet-composer';
-import { DraftsList } from '@/components/DraftsList'; // New import
+import { DraftsList } from '@/components/DraftsList';
 import { TweetShellLogo } from '@/components/icons/logo';
 import { Button } from '@/components/ui/button';
 import { Loader2, LogOut } from 'lucide-react';
@@ -70,16 +70,9 @@ export default function HomePage() {
             )}
           </div>
         </div>
-        <p className="text-base sm:text-lg text-muted-foreground text-center">
-          Welcome, {user.email}! Jot down your thoughts, save drafts, and post to X.
-        </p>
       </header>
       <TweetComposer onDraftSaved={handleDraftSaved} />
       <DraftsList refreshKey={draftsRefreshKey} />
-      <footer className="mt-12 text-center text-sm text-muted-foreground">
-        <p>&copy; {new Date().getFullYear()} Personal Notes. All rights reserved (sort of).</p>
-        <p>Powered by AI and your brilliant thoughts.</p>
-      </footer>
     </div>
   );
 }
