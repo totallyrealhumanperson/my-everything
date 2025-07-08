@@ -38,7 +38,7 @@ const MAX_CHARS = 280;
 
 interface TweetComposerProps {
   onDraftSaved?: () => void; 
-  onTweetPosted?: () => void; // Callback to refresh tweet count
+  onTweetPosted?: (streakInfo?: { newStreak: number; isFirstPostOfDay: boolean }) => void;
 }
 
 export function TweetComposer({ onDraftSaved, onTweetPosted }: TweetComposerProps) {
@@ -64,19 +64,27 @@ export function TweetComposer({ onDraftSaved, onTweetPosted }: TweetComposerProp
   const handleActualSubmitToX = (finalText: string) => {
     if (!user) {
       toast({ title: "Error", description: "You must be logged in to post notes.", variant: "destructive" });
-      setShowAiDialog(false); // Ensure dialog closes
+      setShowAiDialog(false);
       return;
     }
     startSubmittingToX(async () => {
-      const result = await submitTweet(finalText, user.uid); // Pass user.uid
+      const result = await submitTweet(finalText, user.uid);
       if (result.success) {
         toast({
           title: "Success!",
           description: result.message, 
         });
+
+        if (result.streakInfo?.isFirstPostOfDay) {
+          toast({
+              title: `Streak Extended! 🔥`,
+              description: `You're on a ${result.streakInfo.newStreak}-day streak! Keep it up!`,
+          });
+        }
+        
         form.reset();
         setAiResult(null);
-        onTweetPosted?.(); // Call callback to refresh tweet count
+        onTweetPosted?.(result.streakInfo);
       } else {
         toast({
           title: "Error Posting to X",
@@ -163,7 +171,7 @@ export function TweetComposer({ onDraftSaved, onTweetPosted }: TweetComposerProp
               <Label htmlFor="tweet-text" className="sr-only">Note content</Label>
               <Textarea
                 id="tweet-text"
-                placeholder="What are you silly?"
+                placeholder="What's happening?!"
                 className="min-h-[120px] text-base resize-none focus:ring-2 focus:ring-primary"
                 {...form.register("text")}
                 aria-invalid={form.formState.errors.text ? "true" : "false"}

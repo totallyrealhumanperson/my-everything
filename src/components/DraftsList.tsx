@@ -24,10 +24,11 @@ import { Loader2, Trash2, Send, FileText, AlertTriangle, Eye, ClipboardCopy } fr
 import { formatDistanceToNow } from 'date-fns';
 
 interface DraftsListProps {
-  refreshKey: number; // Used to trigger re-fetch
+  refreshKey: number;
+  onTweetPosted?: (streakInfo?: { newStreak: number; isFirstPostOfDay: boolean }) => void;
 }
 
-export function DraftsList({ refreshKey }: DraftsListProps) {
+export function DraftsList({ refreshKey, onTweetPosted }: DraftsListProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [drafts, setDrafts] = useState<DraftClient[]>([]);
@@ -92,11 +93,10 @@ export function DraftsList({ refreshKey }: DraftsListProps) {
     }
     setPostingDraftId(draft.id);
     startPosting(async () => {
-      // Pass user.uid to submitTweet
       const result = await submitTweet(draft.content, user.uid); 
       if (result.success) {
         toast({ title: "Success!", description: result.message });
-        // Consider refreshing tweet count here if onTweetPosted is passed as a prop
+        onTweetPosted?.(result.streakInfo);
         const deleteResult = await deleteDraft(draft.id);
         if (deleteResult.success) {
           setDrafts((prevDrafts) => prevDrafts.filter(d => d.id !== draft.id));
@@ -245,4 +245,3 @@ export function DraftsList({ refreshKey }: DraftsListProps) {
     </AlertDialog>
   );
 }
-    

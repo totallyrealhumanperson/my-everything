@@ -3,7 +3,8 @@
 
 import { filterOffensiveLanguage as aiFilter, type FilterOffensiveLanguageInput, type FilterOffensiveLanguageOutput } from "@/ai/flows/filter-offensive-language";
 import { db } from '@/lib/firebase';
-import { collection, addDoc, getDocs, query, where, orderBy, serverTimestamp, deleteDoc, doc, Timestamp, getCountFromServer } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, where, orderBy, serverTimestamp, deleteDoc, doc, Timestamp, getCountFromServer, updateDoc, getDoc, setDoc } from 'firebase/firestore';
+import { format, isSameDay, isYesterday } from 'date-fns';
 
 export interface Draft {
   id: string;
@@ -21,6 +22,17 @@ export interface PostedTweet {
   content: string;
   xTweetId: string;
   postedAt: Timestamp;
+}
+
+export interface UserStreak {
+  userId: string;
+  currentStreak: number;
+  lastPostDate: string; // YYYY-MM-DD format
+}
+
+export interface UserStats {
+  tweetCount: number;
+  streakCount: number;
 }
 
 
@@ -63,7 +75,41 @@ const getTwitterClient = async () => {
 };
 
 
-export async function submitTweet(tweetContent: string, userId: string): Promise<{ success: boolean; message: string; tweetId?: string }> {
+async function _updateUserStreak(userId: string): Promise<{ newStreak: number; isFirstPostOfDay: boolean }> {
+  const today = new Date();
+  const todayStr = format(today, 'yyyy-MM-dd');
+  const streakRef = doc(db, "userStreaks", userId);
+
+  try {
+    const streakSnap = await getDoc(streakRef);
+
+    if (!streakSnap.exists()) {
+      const newStreakData: UserStreak = { userId, currentStreak: 1, lastPostDate: todayStr };
+      await setDoc(streakRef, newStreakData);
+      return { newStreak: 1, isFirstPostOfDay: true };
+    } else {
+      const streakData = streakSnap.data() as UserStreak;
+      const lastPostDate = new Date(streakData.lastPostDate);
+
+      if (isSameDay(lastPostDate, today)) {
+        return { newStreak: streakData.currentStreak, isFirstPostOfDay: false };
+      } else if (isYesterday(lastPostDate, today)) {
+        const newStreak = streakData.currentStreak + 1;
+        await updateDoc(streakRef, { currentStreak: newStreak, lastPostDate: todayStr });
+        return { newStreak, isFirstPostOfDay: true };
+      } else {
+        await updateDoc(streakRef, { currentStreak: 1, lastPostDate: todayStr });
+        return { newStreak: 1, isFirstPostOfDay: true };
+      }
+    }
+  } catch (error) {
+    console.error(`[actions.ts _updateUserStreak] Error updating streak for userId ${userId}:`, error);
+    return { newStreak: 0, isFirstPostOfDay: false };
+  }
+}
+
+
+export async function submitTweet(tweetContent: string, userId: string): Promise<{ success: boolean; message: string; tweetId?: string; streakInfo?: { newStreak: number; isFirstPostOfDay: boolean } }> {
   console.log(`[actions.ts submitTweet] Attempting to post tweet for userId ${userId}:`, tweetContent);
   if (!userId) {
     console.error("[actions.ts submitTweet] Error: User ID not provided.");
@@ -92,8 +138,11 @@ export async function submitTweet(tweetContent: string, userId: string): Promise
     } catch (firestoreError) {
       console.error("[actions.ts submitTweet] Error saving tweet metadata to Firestore:", firestoreError);
     }
+    
+    const streakInfo = await _updateUserStreak(userId);
+    console.log(`[actions.ts submitTweet] Streak updated for userId ${userId}:`, streakInfo);
 
-    return { success: true, message: "Tweet successfully posted to X!", tweetId: createdTweet.id };
+    return { success: true, message: "Tweet successfully posted to X!", tweetId: createdTweet.id, streakInfo };
 
   } catch (error) {
     console.error("[actions.ts submitTweet] Error posting tweet:", error);
@@ -148,7 +197,7 @@ export async function getDrafts(userId: string): Promise<DraftClient[]> {
   console.log(`[actions.ts getDrafts] Attempting to fetch drafts for userId: ${userId}`);
   try {
     const draftsRef = collection(db, "drafts");
-    const q = query(draftsRef, where("userId", "==", userId), orderBy("createdAt", "desc"));
+    const q = query(draftsRef, where("userId", "==", userId));
     const querySnapshot = await getDocs(q);
 
     console.log(`[actions.ts getDrafts] Query for userId ${userId} - Snapshot empty: ${querySnapshot.empty}, Size: ${querySnapshot.size}`);
@@ -158,40 +207,30 @@ export async function getDrafts(userId: string): Promise<DraftClient[]> {
       return [];
     }
 
-    const drafts: DraftClient[] = [];
-    querySnapshot.forEach((docSnap) => {
-      const data = docSnap.data();
-      console.log(`[actions.ts getDrafts] Raw data for draft ${docSnap.id}:`, JSON.stringify(data));
-      
-      let createdAtISO = new Date().toISOString(); // Fallback
-      if (data.createdAt && typeof data.createdAt.seconds === 'number') {
-         try {
-            createdAtISO = new Date(data.createdAt.seconds * 1000 + (data.createdAt.nanoseconds || 0) / 1000000).toISOString();
-         } catch (e) {
-            console.error(`[actions.ts getDrafts] Error converting Firestore Timestamp for draft ${docSnap.id}`, e);
-         }
-      } else if (data.createdAt) { // Handle if createdAt is already a string or number (e.g. from older data)
-        console.warn(`[actions.ts getDrafts] Unusual or non-Timestamp createdAt format for draft ${docSnap.id}:`, data.createdAt);
-        try {
-          const parsedDate = new Date(data.createdAt);
-          if (!isNaN(parsedDate.getTime())) {
-            createdAtISO = parsedDate.toISOString();
-          }
-        } catch (e) {
-          console.error(`[actions.ts getDrafts] Error parsing non-standard date for draft ${docSnap.id}`, e);
+    const draftsData = querySnapshot.docs.map((docSnap) => {
+        const data = docSnap.data();
+        let createdAtISO = new Date().toISOString(); // Fallback
+        if (data.createdAt && typeof data.createdAt.seconds === 'number') {
+            try {
+                createdAtISO = new Date(data.createdAt.seconds * 1000 + (data.createdAt.nanoseconds || 0) / 1000000).toISOString();
+            } catch (e) {
+                console.error(`[actions.ts getDrafts] Error converting Firestore Timestamp for draft ${docSnap.id}`, e);
+            }
         }
-      }
-
-
-      drafts.push({
-        id: docSnap.id,
-        userId: data.userId || "UNKNOWN_USER_ID_IN_DRAFT",
-        content: data.content || "NO_CONTENT_IN_DRAFT",
-        createdAt: createdAtISO,
-      });
+        return {
+            id: docSnap.id,
+            userId: data.userId,
+            content: data.content,
+            createdAt: createdAtISO,
+            createdAtDate: data.createdAt ? new Date(createdAtISO) : new Date(0)
+        };
     });
-    console.log(`[actions.ts getDrafts] Successfully processed ${drafts.length} drafts for client.`);
-    return drafts;
+    
+    // Sort drafts by date in descending order (newest first)
+    draftsData.sort((a, b) => b.createdAtDate.getTime() - a.createdAtDate.getTime());
+
+    console.log(`[actions.ts getDrafts] Successfully processed ${draftsData.length} drafts for client.`);
+    return draftsData;
   } catch (error: any) {
     console.error("[actions.ts getDrafts] Error fetching or processing drafts:", error.message, error.stack);
     if ((error as any)?.code === 'failed-precondition') {
@@ -237,4 +276,35 @@ export async function getPostedTweetCount(userId: string): Promise<number> {
     }
     return 0;
   }
+}
+
+
+export async function getUserStats(userId: string): Promise<UserStats> {
+    if (!userId) {
+        return { tweetCount: 0, streakCount: 0 };
+    }
+    const tweetCount = await getPostedTweetCount(userId);
+    
+    let streakCount = 0;
+    try {
+        const streakRef = doc(db, "userStreaks", userId);
+        const streakSnap = await getDoc(streakRef);
+        if (streakSnap.exists()) {
+            const streakData = streakSnap.data() as UserStreak;
+            // Validate if the streak is still active
+            const lastPostDate = new Date(streakData.lastPostDate);
+            const today = new Date();
+            // The streak is valid if the last post was today or yesterday.
+            // We adjust for timezone by ensuring the dates are compared correctly.
+            if (isSameDay(lastPostDate, today) || isYesterday(lastPostDate, today)) {
+                streakCount = streakData.currentStreak;
+            } else {
+                streakCount = 0; // Streak is broken
+            }
+        }
+    } catch (error) {
+        console.error(`[actions.ts getUserStats] Error fetching streak for userId ${userId}:`, error);
+    }
+
+    return { tweetCount, streakCount };
 }

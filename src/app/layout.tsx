@@ -12,8 +12,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'Personal Notes',
-  description: 'Jot down your thoughts and ideas, securely.',
+  title: 'TweetShell',
+  description: 'Jot down your thoughts, save drafts, and post to X.',
 };
 
 export default function RootLayout({

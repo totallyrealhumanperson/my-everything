@@ -8,24 +8,25 @@ import { TweetComposer } from '@/components/tweet-composer';
 import { DraftsList } from '@/components/DraftsList';
 import { TweetShellLogo } from '@/components/icons/logo';
 import { Button } from '@/components/ui/button';
-import { Loader2, LogOut, Award } from 'lucide-react'; // Added Award icon
+import { Loader2, LogOut, Award, Flame } from 'lucide-react'; 
 import { ThemeToggle } from '@/components/theme-toggle';
-import { getPostedTweetCount } from '@/app/actions'; 
+import { getUserStats } from '@/app/actions'; 
 
 export default function HomePage() {
   const { user, loading, signOutUser } = useAuth();
   const router = useRouter();
   const [draftsRefreshKey, setDraftsRefreshKey] = useState(0);
   const [postedTweetCount, setPostedTweetCount] = useState(0);
+  const [streakCount, setStreakCount] = useState(0);
 
-  const fetchTweetCount = useCallback(async () => {
+  const fetchUserStats = useCallback(async () => {
     if (user) {
       try {
-        const count = await getPostedTweetCount(user.uid);
-        setPostedTweetCount(count);
+        const stats = await getUserStats(user.uid);
+        setPostedTweetCount(stats.tweetCount);
+        setStreakCount(stats.streakCount);
       } catch (error) {
-        console.error("Failed to fetch tweet count", error);
-        // Optionally show a toast error
+        console.error("Failed to fetch user stats", error);
       }
     }
   }, [user]);
@@ -35,9 +36,9 @@ export default function HomePage() {
       router.push('/login');
     }
     if (user) {
-      fetchTweetCount();
+      fetchUserStats();
     }
-  }, [user, loading, router, fetchTweetCount]);
+  }, [user, loading, router, fetchUserStats]);
 
   const handleLogout = async () => {
     try {
@@ -45,7 +46,6 @@ export default function HomePage() {
       router.push('/login');
     } catch (error) {
       console.error("Logout failed", error);
-      // Handle logout error, maybe show a toast
     }
   };
 
@@ -53,10 +53,13 @@ export default function HomePage() {
     setDraftsRefreshKey(prevKey => prevKey + 1);
   }, []);
 
-  const handleTweetPosted = useCallback(() => {
-    fetchTweetCount(); // Refresh count after a tweet is posted
-    setDraftsRefreshKey(prevKey => prevKey + 1); // Also refresh drafts in case it was posted from drafts list
-  }, [fetchTweetCount]);
+  const handleTweetPosted = useCallback((streakInfo?: { newStreak: number; isFirstPostOfDay: boolean }) => {
+    setPostedTweetCount(prev => prev + 1);
+    setDraftsRefreshKey(prevKey => prevKey + 1); 
+    if (streakInfo) {
+      setStreakCount(streakInfo.newStreak);
+    }
+  }, []);
 
   if (loading) {
     return (
@@ -81,12 +84,18 @@ export default function HomePage() {
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center justify-start gap-3 mb-2 flex-grow">
             <TweetShellLogo className="h-10 w-10 sm:h-12 sm:w-12 text-primary" />
-            <h1 className="text-4xl sm:text-5xl font-headline font-bold text-primary">Personal Notes</h1>
+            <h1 className="text-4xl sm:text-5xl font-headline font-bold text-primary">TweetShell</h1>
             {user && (
-              <div className="ml-4 flex items-center gap-1 text-lg text-muted-foreground" title="Total Tweets Posted">
-                <Award className="h-5 w-5 text-amber-500" />
-                <span>{postedTweetCount}</span>
-              </div>
+              <>
+                <div className="ml-4 flex items-center gap-1 text-lg text-muted-foreground" title="Total Tweets Posted">
+                  <Award className="h-5 w-5 text-amber-500" />
+                  <span>{postedTweetCount}</span>
+                </div>
+                <div className="ml-2 flex items-center gap-1 text-lg text-muted-foreground" title="Daily Posting Streak">
+                  <Flame className="h-5 w-5 text-orange-500" />
+                  <span>{streakCount}</span>
+                </div>
+              </>
             )}
           </div>
           <div className="flex items-center gap-2 self-start">
@@ -100,7 +109,7 @@ export default function HomePage() {
         </div>
       </header>
       <TweetComposer onDraftSaved={handleDraftSaved} onTweetPosted={handleTweetPosted} />
-      <DraftsList refreshKey={draftsRefreshKey} />
+      <DraftsList refreshKey={draftsRefreshKey} onTweetPosted={handleTweetPosted} />
     </div>
   );
 }
