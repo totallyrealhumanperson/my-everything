@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { TweetComposer } from '@/components/tweet-composer';
 import { DraftsList } from '@/components/DraftsList';
-import { TweetShellLogo } from '@/components/icons/logo';
 import { Button } from '@/components/ui/button';
 import { Loader2, LogOut, Award, Flame } from 'lucide-react'; 
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -83,8 +82,7 @@ export default function HomePage() {
       <header className="w-full max-w-xl mb-8 sm:mb-12">
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center justify-start gap-3 mb-2 flex-grow">
-            <TweetShellLogo className="h-10 w-10 sm:h-12 sm:w-12 text-primary" />
-            <h1 className="text-4xl sm:text-5xl font-headline font-bold text-primary">TweetShell</h1>
+            <h1 className="text-4xl sm:text-5xl font-headline font-bold text-primary">Personal Notes</h1>
             {user && (
               <>
                 <div className="ml-4 flex items-center gap-1 text-lg text-muted-foreground" title="Total Tweets Posted">

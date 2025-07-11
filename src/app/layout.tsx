@@ -12,7 +12,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'TweetShell',
+  title: 'Personal Notes',
   description: 'Jot down your thoughts, save drafts, and post to X.',
 };
 

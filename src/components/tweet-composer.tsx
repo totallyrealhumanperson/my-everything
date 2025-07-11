@@ -171,7 +171,7 @@ export function TweetComposer({ onDraftSaved, onTweetPosted }: TweetComposerProp
               <Label htmlFor="tweet-text" className="sr-only">Note content</Label>
               <Textarea
                 id="tweet-text"
-                placeholder="What's happening?!"
+                placeholder="what are you silly"
                 className="min-h-[120px] text-base resize-none focus:ring-2 focus:ring-primary"
                 {...form.register("text")}
                 aria-invalid={form.formState.errors.text ? "true" : "false"}
@@ -221,7 +221,7 @@ export function TweetComposer({ onDraftSaved, onTweetPosted }: TweetComposerProp
               ) : (
                 <SendHorizonal className="mr-2 h-5 w-5" />
               )}
-              Analyze & Post to X
+              Save Draft
             </Button>
           </CardFooter>
         </form>

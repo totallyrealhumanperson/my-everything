@@ -139,7 +139,7 @@ export function DraftsList({ refreshKey, onTweetPosted }: DraftsListProps) {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-xl font-headline">
             <FileText className="h-5 w-5 text-primary" />
-            Saved Drafts
+            Cowards Corner
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -163,7 +163,7 @@ export function DraftsList({ refreshKey, onTweetPosted }: DraftsListProps) {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-xl font-headline">
             <FileText className="h-5 w-5 text-primary" />
-            Saved Drafts
+            Cowards Corner
           </CardTitle>
         </CardHeader>
         <CardContent>
