@@ -6,8 +6,30 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { TweetComposer } from '@/components/tweet-composer';
 import { DraftsList } from '@/components/DraftsList';
-import { Loader2 } from 'lucide-react'; 
+import { Loader2, Flame, PenSquare } from 'lucide-react'; 
 import { getUserStats } from '@/app/actions'; 
+import { Card, CardContent } from '@/components/ui/card';
+
+function UserStats({ tweetCount, streakCount }: { tweetCount: number; streakCount: number }) {
+  return (
+    <Card className="w-full max-w-xl mb-4 shadow-lg">
+      <CardContent className="p-4">
+        <div className="flex justify-around text-center">
+          <div className="flex flex-col items-center">
+            <PenSquare className="h-6 w-6 text-primary mb-1" />
+            <p className="text-xl font-bold">{tweetCount}</p>
+            <p className="text-xs text-muted-foreground">Notes Posted</p>
+          </div>
+          <div className="flex flex-col items-center">
+            <Flame className="h-6 w-6 text-orange-500 mb-1" />
+            <p className="text-xl font-bold">{streakCount}</p>
+            <p className="text-xs text-muted-foreground">Day Streak</p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function HomePage() {
   const { user, loading } = useAuth();
@@ -69,6 +91,7 @@ export default function HomePage() {
   return (
     <div className="flex flex-col items-center justify-start min-h-screen bg-background text-foreground p-4 sm:p-8 pt-12 sm:pt-24">
 
+      <UserStats tweetCount={postedTweetCount} streakCount={streakCount} />
       <TweetComposer onDraftSaved={handleDraftSaved} onTweetPosted={handleTweetPosted} />
       <DraftsList refreshKey={draftsRefreshKey} onTweetPosted={handleTweetPosted} />
     </div>
