@@ -90,7 +90,7 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col items-center justify-start min-h-screen bg-background text-foreground p-4 sm:p-8 pt-12 sm:pt-24">
-
+      <h1 className="text-3xl font-bold text-center mb-6">Personal Notes</h1>
       <UserStats tweetCount={postedTweetCount} streakCount={streakCount} />
       <TweetComposer onDraftSaved={handleDraftSaved} onTweetPosted={handleTweetPosted} />
       <DraftsList refreshKey={draftsRefreshKey} onTweetPosted={handleTweetPosted} />
