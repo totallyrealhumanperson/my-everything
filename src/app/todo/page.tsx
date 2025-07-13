@@ -2,6 +2,7 @@
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ListTodo, Loader2 } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/auth-context';
@@ -16,6 +17,7 @@ export default function TodoPage() {
   
   const [todos, setTodos] = useState<TodoClient[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
 
   const fetchTodos = useCallback(async () => {
     if (!user) {
@@ -50,7 +52,12 @@ export default function TodoPage() {
   }, [authLoading, fetchTodos]);
   
   const handleTodoAdded = (newTodo: TodoClient) => {
-    setTodos((prevTodos) => [newTodo, ...prevTodos]);
+    setTodos((prevTodos) => [newTodo, ...prevTodos].sort((a, b) => {
+        if (a.completed !== b.completed) {
+          return a.completed ? 1 : -1;
+        }
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }));
   };
   
   const handleTodoToggled = (todoId: string, completed: boolean, completedAt: string | null) => {
@@ -68,6 +75,12 @@ export default function TodoPage() {
   const handleTodoDeleted = (todoId: string) => {
       setTodos(prevTodos => prevTodos.filter(t => t.id !== todoId));
   };
+  
+  const filteredTodos = todos.filter(todo => {
+    if (filter === 'active') return !todo.completed;
+    if (filter === 'completed') return todo.completed;
+    return true;
+  });
 
 
   if (authLoading) {
@@ -116,15 +129,23 @@ export default function TodoPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <Tabs defaultValue="all" className="w-full" onValueChange={(value) => setFilter(value as any)}>
+            <TabsList className="grid w-full grid-cols-3 mb-4">
+                <TabsTrigger value="all">All</TabsTrigger>
+                <TabsTrigger value="active">Active</TabsTrigger>
+                <TabsTrigger value="completed">Completed</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          
           {isLoading ? (
              <div className="flex justify-center items-center py-8">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : (
             <div className="space-y-2 mt-4">
-              {todos.length > 0 ? (
+              {filteredTodos.length > 0 ? (
                 <ul className="divide-y divide-border">
-                  {todos.map((todo) => (
+                  {filteredTodos.map((todo) => (
                     <TodoItem 
                         key={todo.id} 
                         todo={todo}
@@ -135,8 +156,11 @@ export default function TodoPage() {
                 </ul>
               ) : (
                 <div className="text-center text-muted-foreground py-8">
-                  <p className="font-medium">No tasks found.</p>
-                  <p className="text-sm">Use the form above to add your first task!</p>
+                  <p className="font-medium">
+                    {filter === 'all' && 'No tasks found. Add one above!'}
+                    {filter === 'active' && 'No active tasks. Great job!'}
+                    {filter === 'completed' && 'No completed tasks yet.'}
+                  </p>
                 </div>
               )}
             </div>
