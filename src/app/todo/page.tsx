@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { getTodos, type TodoClient } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { AddTodoForm } from '@/components/add-todo-form';
+import { TodoItem } from '@/components/todo-item';
 
 export default function TodoPage() {
   const { user, loading: authLoading } = useAuth();
@@ -26,6 +27,13 @@ export default function TodoPage() {
     setIsLoading(true);
     try {
       const userTodos = await getTodos(user.uid);
+      // Sort todos: incomplete first, then by creation date
+      userTodos.sort((a, b) => {
+        if (a.completed !== b.completed) {
+          return a.completed ? 1 : -1;
+        }
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
       setTodos(userTodos);
     } catch (err) {
       console.error("[TodoPage] Error fetching todos:", err);
@@ -44,6 +52,23 @@ export default function TodoPage() {
   const handleTodoAdded = (newTodo: TodoClient) => {
     setTodos((prevTodos) => [newTodo, ...prevTodos]);
   };
+  
+  const handleTodoToggled = (todoId: string, completed: boolean, completedAt: string | null) => {
+    setTodos(prevTodos => 
+        prevTodos.map(t => t.id === todoId ? { ...t, completed, completedAt } : t)
+        .sort((a, b) => {
+          if (a.completed !== b.completed) {
+            return a.completed ? 1 : -1;
+          }
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        })
+    );
+  };
+  
+  const handleTodoDeleted = (todoId: string) => {
+      setTodos(prevTodos => prevTodos.filter(t => t.id !== todoId));
+  };
+
 
   if (authLoading) {
     return (
@@ -100,9 +125,12 @@ export default function TodoPage() {
               {todos.length > 0 ? (
                 <ul className="divide-y divide-border">
                   {todos.map((todo) => (
-                    <li key={todo.id} className="p-3">
-                      {todo.text}
-                    </li>
+                    <TodoItem 
+                        key={todo.id} 
+                        todo={todo}
+                        onToggle={handleTodoToggled}
+                        onDelete={handleTodoDeleted}
+                    />
                   ))}
                 </ul>
               ) : (
