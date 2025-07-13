@@ -8,7 +8,7 @@ import { TweetComposer } from '@/components/tweet-composer';
 import { DraftsList } from '@/components/DraftsList';
 import { Loader2 } from 'lucide-react'; 
 import { getUserStats } from '@/app/actions'; 
-import { useSidebar } from '@/components/ui/sidebar';
+import { useSidebar } from '@/hooks/use-sidebar';
 
 export interface PageHeaderProps {
   postedTweetCount: number;
@@ -25,7 +25,8 @@ export default function HomePage() {
   const { setOpen } = useSidebar();
 
   useEffect(() => {
-    setOpen(false);
+    // This will now correctly keep the sidebar open on the home page.
+    setOpen(true);
   }, [setOpen]);
   
   const fetchUserStats = useCallback(async () => {

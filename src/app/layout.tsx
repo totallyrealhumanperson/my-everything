@@ -6,6 +6,7 @@ import { AuthProvider } from '@/contexts/auth-context';
 import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from '@/components/theme-provider';
 import { AppLayout } from '@/components/app-layout';
+import { SidebarProvider } from '@/components/ui/sidebar';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -33,9 +34,11 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <AuthProvider>
-            <AppLayout>
-              {children}
-            </AppLayout>
+            <SidebarProvider>
+              <AppLayout>
+                {children}
+              </AppLayout>
+            </SidebarProvider>
             <Toaster />
           </AuthProvider>
         </ThemeProvider>

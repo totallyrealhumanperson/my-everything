@@ -1,7 +1,6 @@
 
 'use client';
 import {
-  SidebarProvider,
   Sidebar,
   SidebarHeader,
   SidebarTrigger,
@@ -18,16 +17,21 @@ import { useAuth } from '@/contexts/auth-context';
 import { ThemeToggle } from './theme-toggle';
 import { Button } from './ui/button';
 import { Separator } from './ui/separator';
+import { useSidebar } from '@/hooks/use-sidebar';
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, signOutUser } = useAuth();
-  // Don't show sidebar on login page
+  
+  // Conditionally render layout to avoid hook errors on pages without the provider
   if (pathname === '/login') {
     return <>{children}</>;
   }
 
+  // This hook will now only be called on pages with the sidebar provider
+  const { setOpen } = useSidebar();
+  
   const handleLogout = async () => {
     try {
       await signOutUser();
@@ -38,7 +42,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <SidebarProvider>
+    <>
       <Sidebar>
         <SidebarHeader>
           <div className="flex items-center justify-between">
@@ -87,6 +91,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </header>
         {children}
       </SidebarInset>
-    </SidebarProvider>
+    </>
   );
 }
