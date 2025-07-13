@@ -366,7 +366,8 @@ export async function getTodos(userId: string): Promise<TodoClient[]> {
 
 export async function addTodo(
     text: string, 
-    userId: string
+    userId: string,
+    priority: 'Low' | 'Medium' | 'High'
 ): Promise<TodoClient | null> {
     if (!userId || !text.trim()) return null;
     try {
@@ -376,7 +377,7 @@ export async function addTodo(
             completed: false,
             createdAt: serverTimestamp(),
             completedAt: null,
-            priority: 'Medium', // Default priority
+            priority: priority,
             tags: [] // Default empty tags
         });
         const docSnap = await getDoc(docRef);

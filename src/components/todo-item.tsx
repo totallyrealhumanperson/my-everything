@@ -8,12 +8,26 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Loader2, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Badge } from './ui/badge';
 
 interface TodoItemProps {
   todo: TodoClient;
   onToggle: (todoId: string, completed: boolean, completedAt: string | null) => void;
   onDelete: (todoId: string) => void;
 }
+
+const priorityVariantMap: Record<TodoClient['priority'], 'destructive' | 'secondary' | 'default'> = {
+  High: 'destructive',
+  Medium: 'secondary',
+  Low: 'default',
+};
+
+const priorityTextMap: Record<TodoClient['priority'], string> = {
+  High: 'High',
+  Medium: 'Medium',
+  Low: 'Low',
+};
+
 
 export function TodoItem({ todo, onToggle, onDelete }: TodoItemProps) {
   const { toast } = useToast();
@@ -69,6 +83,9 @@ export function TodoItem({ todo, onToggle, onDelete }: TodoItemProps) {
       >
         {todo.text}
       </label>
+      <Badge variant={priorityVariantMap[todo.priority] || 'default'} className="hidden sm:inline-flex">
+        {priorityTextMap[todo.priority] || 'Medium'}
+      </Badge>
       <Button
         variant="ghost"
         size="icon"

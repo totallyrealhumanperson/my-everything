@@ -8,13 +8,16 @@ import * as z from 'zod';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { addTodo, type TodoClient } from '@/app/actions';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, PlusCircle } from 'lucide-react';
+import { Label } from './ui/label';
 
 const formSchema = z.object({
   text: z.string().min(1, 'Task cannot be empty.'),
+  priority: z.enum(['Low', 'Medium', 'High']),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -30,7 +33,7 @@ export function AddTodoForm({ onTodoAdded }: AddTodoFormProps) {
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: { text: '' },
+    defaultValues: { text: '', priority: 'Medium' },
   });
 
   const onSubmit: SubmitHandler<FormValues> = async (data) => {
@@ -41,7 +44,7 @@ export function AddTodoForm({ onTodoAdded }: AddTodoFormProps) {
     
     setIsPending(true);
     try {
-      const newTodo = await addTodo(data.text, user.uid);
+      const newTodo = await addTodo(data.text, user.uid, data.priority);
       if (newTodo) {
         toast({ title: 'Success', description: 'Task added successfully.' });
         onTodoAdded(newTodo);
@@ -64,10 +67,12 @@ export function AddTodoForm({ onTodoAdded }: AddTodoFormProps) {
           <PlusCircle className="h-5 w-5 text-primary" />
           Add a New Task
         </CardTitle>
+        <CardDescription>What do you need to get done?</CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="flex items-start gap-2">
-          <div className="flex-grow grid gap-1.5">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="grid sm:grid-cols-12 gap-2 items-start">
+          <div className="sm:col-span-8 grid gap-1.5">
+            <Label htmlFor="text" className="sr-only">Task description</Label>
             <Input
               id="text"
               placeholder="e.g., Finish the prototype"
@@ -78,9 +83,28 @@ export function AddTodoForm({ onTodoAdded }: AddTodoFormProps) {
               <p className="text-sm text-destructive">{form.formState.errors.text.message}</p>
             )}
           </div>
-          <Button type="submit" disabled={isPending}>
-            {isPending ? <Loader2 className="animate-spin" /> : 'Add Task'}
-          </Button>
+          <div className="sm:col-span-2 grid gap-1.5">
+             <Label htmlFor="priority" className="sr-only">Priority</Label>
+             <Select
+                value={form.watch('priority')}
+                onValueChange={(value) => form.setValue('priority', value as 'Low' | 'Medium' | 'High')}
+                disabled={isPending}
+            >
+                <SelectTrigger id="priority">
+                    <SelectValue placeholder="Priority" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="Low">Low</SelectItem>
+                    <SelectItem value="Medium">Medium</SelectItem>
+                    <SelectItem value="High">High</SelectItem>
+                </SelectContent>
+            </Select>
+          </div>
+          <div className="sm:col-span-2">
+            <Button type="submit" disabled={isPending} className="w-full">
+              {isPending ? <Loader2 className="animate-spin" /> : 'Add Task'}
+            </Button>
+          </div>
         </form>
       </CardContent>
     </Card>
