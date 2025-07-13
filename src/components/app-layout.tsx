@@ -11,26 +11,17 @@ import {
   SidebarFooter,
 } from '@/components/ui/sidebar';
 import Link from 'next/link';
-import { Home, Info, LogOut, Award, Flame, PanelLeft } from 'lucide-react';
+import { Home, Info, LogOut, PanelLeft } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { ThemeToggle } from './theme-toggle';
 import { Button } from './ui/button';
 import { Separator } from './ui/separator';
-import { useSidebar } from '@/hooks/use-sidebar';
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, signOutUser } = useAuth();
-  
-  // Conditionally render layout to avoid hook errors on pages without the provider
-  if (pathname === '/login') {
-    return <>{children}</>;
-  }
-
-  // This hook will now only be called on pages with the sidebar provider
-  const { setOpen } = useSidebar();
   
   const handleLogout = async () => {
     try {
@@ -41,6 +32,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // The login page has a different, simpler layout without a sidebar.
+  if (pathname === '/login') {
+    return <>{children}</>;
+  }
+
+  // The main application layout with the sidebar.
   return (
     <>
       <Sidebar>
@@ -80,14 +77,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>
-        <header className="flex items-center justify-between p-4 border-b">
-            <SidebarTrigger className="md:hidden">
+        <header className="flex items-center justify-between p-4 border-b md:hidden">
+            <SidebarTrigger>
                 <PanelLeft />
             </SidebarTrigger>
             <div className="flex-grow"></div>
-            <div className="flex items-center gap-4">
-                 {/* This space can be used for stats on the homepage if we move them here */}
-            </div>
         </header>
         {children}
       </SidebarInset>

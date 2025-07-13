@@ -10,12 +10,6 @@ import { Loader2 } from 'lucide-react';
 import { getUserStats } from '@/app/actions'; 
 import { useSidebar } from '@/hooks/use-sidebar';
 
-export interface PageHeaderProps {
-  postedTweetCount: number;
-  streakCount: number;
-}
-
-
 export default function HomePage() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -25,7 +19,7 @@ export default function HomePage() {
   const { setOpen } = useSidebar();
 
   useEffect(() => {
-    // This will now correctly keep the sidebar open on the home page.
+    // This correctly keeps the sidebar open on the home page.
     setOpen(true);
   }, [setOpen]);
   

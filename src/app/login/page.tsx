@@ -1,12 +1,11 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useRouter } from 'next/navigation';
-// import Link from 'next/link'; // Removed Link as signup is disabled
 import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,7 +13,6 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, LogIn } from 'lucide-react';
-import { useSidebar } from '@/hooks/use-sidebar';
 
 const loginSchema = z.object({
   email: z.string().email({ message: 'Invalid email address' }),
@@ -28,11 +26,6 @@ export default function LoginPage() {
   const { signInWithEmail } = useAuth();
   const { toast } = useToast();
   const [isPending, setIsPending] = useState(false);
-  const { setOpen } = useSidebar();
-
-  useEffect(() => {
-    setOpen(false);
-  }, [setOpen]);
 
   const {
     register,
@@ -114,12 +107,6 @@ export default function LoginPage() {
               {isPending ? <Loader2 className="animate-spin" /> : <LogIn className="mr-2 h-4 w-4" />}
               Login
             </Button>
-            {/* <p className="text-sm text-muted-foreground">
-              Don&apos;t have an account?{' '}
-              <Link href="/signup" className="font-medium text-primary hover:underline">
-                Sign up
-              </Link>
-            </p> */}
           </CardFooter>
         </form>
       </Card>
