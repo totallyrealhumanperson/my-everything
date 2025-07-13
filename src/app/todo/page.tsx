@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { AddTodoForm } from '@/components/add-todo-form';
 import { TodoItem } from '@/components/todo-item';
 import { isToday } from 'date-fns';
+import { ManageTagsForm } from '@/components/manage-tags-form';
 
 export default function TodoPage() {
   const { user, loading: authLoading } = useAuth();
@@ -180,6 +181,8 @@ export default function TodoPage() {
           )}
         </CardContent>
       </Card>
+      
+      <ManageTagsForm />
     </div>
   );
 }
