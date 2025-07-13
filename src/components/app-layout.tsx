@@ -57,7 +57,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <Sidebar>
         <SidebarHeader>
           <div className="flex items-center justify-between">
-             <h1 className="text-xl font-semibold text-primary">Personal Notes</h1>
+             <h1 className="text-xl font-semibold text-primary">My Everything</h1>
           </div>
         </SidebarHeader>
         <SidebarMenu>
