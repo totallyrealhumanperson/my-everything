@@ -32,12 +32,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // The login page has a different, simpler layout without a sidebar.
   if (pathname === '/login') {
     return <>{children}</>;
   }
 
-  // The main application layout with the sidebar.
   return (
     <>
       <Sidebar>

@@ -8,7 +8,6 @@ import { TweetComposer } from '@/components/tweet-composer';
 import { DraftsList } from '@/components/DraftsList';
 import { Loader2 } from 'lucide-react'; 
 import { getUserStats } from '@/app/actions'; 
-import { useSidebar } from '@/hooks/use-sidebar';
 
 export default function HomePage() {
   const { user, loading } = useAuth();
@@ -16,13 +15,7 @@ export default function HomePage() {
   const [draftsRefreshKey, setDraftsRefreshKey] = useState(0);
   const [postedTweetCount, setPostedTweetCount] = useState(0);
   const [streakCount, setStreakCount] = useState(0);
-  const { setOpen } = useSidebar();
 
-  useEffect(() => {
-    // This correctly keeps the sidebar open on the home page.
-    setOpen(true);
-  }, [setOpen]);
-  
   const fetchUserStats = useCallback(async () => {
     if (user) {
       try {
