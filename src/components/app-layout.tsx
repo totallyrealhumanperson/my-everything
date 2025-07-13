@@ -11,7 +11,7 @@ import {
   SidebarFooter,
 } from '@/components/ui/sidebar';
 import Link from 'next/link';
-import { Home, Info, LogOut, PanelLeft, Moon, Sun, Laptop } from 'lucide-react';
+import { Home, Info, LogOut, PanelLeft, Moon, Sun, Laptop, ListTodo } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { Button } from './ui/button';
@@ -66,6 +66,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <Link href="/">
                 <Home />
                 Personal Notes
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild isActive={pathname === '/todo'}>
+              <Link href="/todo">
+                <ListTodo />
+                To-Do List
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
