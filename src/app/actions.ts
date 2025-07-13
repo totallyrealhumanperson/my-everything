@@ -35,6 +35,8 @@ export interface UserStats {
   streakCount: number;
 }
 
+export type TodoStatus = 'No Status' | 'In Progress' | 'Needs Review' | 'Blocked';
+
 export interface Todo {
   id: string;
   userId: string;
@@ -44,6 +46,7 @@ export interface Todo {
   completedAt: Timestamp | null;
   priority: 'Low' | 'Medium' | 'High';
   tags: string[];
+  status: TodoStatus;
 }
 
 export interface TodoClient extends Omit<Todo, 'createdAt' | 'completedAt'> {
@@ -353,6 +356,7 @@ export async function getTodos(userId: string): Promise<TodoClient[]> {
                 completedAt: completedAt,
                 priority: data.priority || 'Medium',
                 tags: data.tags || [],
+                status: data.status || 'No Status',
             };
         });
     } catch (error) {
@@ -372,15 +376,17 @@ export async function addTodo(
 ): Promise<TodoClient | null> {
     if (!userId || !text.trim()) return null;
     try {
-        const docRef = await addDoc(collection(db, 'myToDos'), {
+        const newTodoData = {
             userId,
             text,
             completed: false,
             createdAt: serverTimestamp(),
             completedAt: null,
             priority: priority,
-            tags: tags
-        });
+            tags: tags,
+            status: 'No Status' as TodoStatus,
+        };
+        const docRef = await addDoc(collection(db, 'myToDos'), newTodoData);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
             const data = docSnap.data() as Omit<Todo, 'id'>;
@@ -393,6 +399,7 @@ export async function addTodo(
                 completedAt: null,
                 priority: data.priority,
                 tags: data.tags,
+                status: data.status,
             };
         }
         return null;
@@ -411,6 +418,16 @@ export async function toggleTodo(todoId: string, completed: boolean): Promise<{ 
     } catch (error) {
         console.error("[actions.ts toggleTodo] Error toggling todo:", error);
         return { success: false, completedAt: null };
+    }
+}
+
+export async function updateTodoStatus(todoId: string, status: TodoStatus): Promise<{ success: boolean }> {
+    try {
+        await updateDoc(doc(db, 'myToDos', todoId), { status });
+        return { success: true };
+    } catch (error) {
+        console.error("[actions.ts updateTodoStatus] Error updating todo status:", error);
+        return { success: false };
     }
 }
 
@@ -471,5 +488,3 @@ export async function deleteTag(tagId: string): Promise<{ success: boolean }> {
         return { success: false };
     }
 }
-
-    

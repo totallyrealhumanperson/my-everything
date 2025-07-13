@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { ListTodo, Loader2 } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/auth-context';
-import { getTodos, type TodoClient } from '@/app/actions';
+import { getTodos, type TodoClient, type TodoStatus } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { AddTodoForm } from '@/components/add-todo-form';
 import { TodoItem } from '@/components/todo-item';
@@ -79,6 +79,12 @@ export default function TodoPage() {
       setTodos(prevTodos => prevTodos.filter(t => t.id !== todoId));
   };
   
+  const handleStatusChanged = (todoId: string, status: TodoStatus) => {
+    setTodos(prevTodos => 
+        prevTodos.map(t => t.id === todoId ? { ...t, status } : t)
+    );
+  };
+
   const filteredTodos = todos.filter(todo => {
     if (filter === 'active') return !todo.completed;
     if (filter === 'completed') return todo.completed;
@@ -164,6 +170,7 @@ export default function TodoPage() {
                         todo={todo}
                         onToggle={handleTodoToggled}
                         onDelete={handleTodoDeleted}
+                        onStatusChange={handleStatusChanged}
                     />
                   ))}
                 </ul>
