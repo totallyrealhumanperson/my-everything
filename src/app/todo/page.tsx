@@ -2,7 +2,8 @@
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 import { ListTodo, Loader2 } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/auth-context';
@@ -10,6 +11,7 @@ import { getTodos, type TodoClient } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { AddTodoForm } from '@/components/add-todo-form';
 import { TodoItem } from '@/components/todo-item';
+import { isToday } from 'date-fns';
 
 export default function TodoPage() {
   const { user, loading: authLoading } = useAuth();
@@ -17,7 +19,7 @@ export default function TodoPage() {
   
   const [todos, setTodos] = useState<TodoClient[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
+  const [filter, setFilter] = useState<'today' | 'all' | 'active' | 'completed'>('today');
 
   const fetchTodos = useCallback(async () => {
     if (!user) {
@@ -79,7 +81,10 @@ export default function TodoPage() {
   const filteredTodos = todos.filter(todo => {
     if (filter === 'active') return !todo.completed;
     if (filter === 'completed') return todo.completed;
-    return true;
+    if (filter === 'today') {
+        return !todo.completed || (todo.completed && todo.completedAt && isToday(new Date(todo.completedAt)));
+    }
+    return true; // 'all'
   });
 
 
@@ -125,17 +130,24 @@ export default function TodoPage() {
             Your Tasks
           </CardTitle>
           <CardDescription>
-            Here are the tasks you've added.
+            Here are the tasks you've added. Use the filter to change your view.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="all" className="w-full" onValueChange={(value) => setFilter(value as any)}>
-            <TabsList className="grid w-full grid-cols-3 mb-4">
-                <TabsTrigger value="all">All</TabsTrigger>
-                <TabsTrigger value="active">Active</TabsTrigger>
-                <TabsTrigger value="completed">Completed</TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <div className="flex items-center gap-4 mb-4">
+            <Label htmlFor="filter-select" className="text-sm font-medium">Show:</Label>
+            <Select value={filter} onValueChange={(value) => setFilter(value as any)}>
+              <SelectTrigger id="filter-select" className="w-[180px]">
+                <SelectValue placeholder="Filter tasks" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="today">Today</SelectItem>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           
           {isLoading ? (
              <div className="flex justify-center items-center py-8">
@@ -144,7 +156,7 @@ export default function TodoPage() {
           ) : (
             <div className="space-y-2 mt-4">
               {filteredTodos.length > 0 ? (
-                <ul className="divide-y divide-border">
+                <ul className="divide-y divide-border rounded-md border">
                   {filteredTodos.map((todo) => (
                     <TodoItem 
                         key={todo.id} 
@@ -160,6 +172,7 @@ export default function TodoPage() {
                     {filter === 'all' && 'No tasks found. Add one above!'}
                     {filter === 'active' && 'No active tasks. Great job!'}
                     {filter === 'completed' && 'No completed tasks yet.'}
+                    {filter === 'today' && 'No tasks for today. Add one or get something done!'}
                   </p>
                 </div>
               )}

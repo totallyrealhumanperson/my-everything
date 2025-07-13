@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useTransition } from 'react';
 import { type TodoClient, toggleTodo, deleteTodo } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -48,7 +48,7 @@ export function TodoItem({ todo, onToggle, onDelete }: TodoItemProps) {
   return (
     <li
       className={cn(
-        'flex items-center gap-3 p-3 transition-colors',
+        'flex items-center gap-3 p-3 transition-colors first:rounded-t-md last:rounded-b-md',
         todo.completed && 'bg-muted/50',
         isPending && 'opacity-50'
       )}
