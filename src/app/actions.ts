@@ -41,12 +41,14 @@ export interface Todo {
   text: string;
   completed: boolean;
   createdAt: Timestamp;
+  completedAt: Timestamp | null;
   priority: 'Low' | 'Medium' | 'High';
   tags: string[];
 }
 
-export interface TodoClient extends Omit<Todo, 'createdAt'> {
+export interface TodoClient extends Omit<Todo, 'createdAt' | 'completedAt'> {
     createdAt: string;
+    completedAt: string | null;
 }
 
 export interface Tag {
@@ -345,6 +347,7 @@ export async function getTodos(userId: string): Promise<TodoClient[]> {
                 text: data.text,
                 completed: data.completed,
                 createdAt: (data.createdAt as Timestamp).toDate().toISOString(),
+                completedAt: data.completedAt ? (data.completedAt as Timestamp).toDate().toISOString() : null,
                 priority: data.priority || 'Medium',
                 tags: data.tags || [],
             };
@@ -368,6 +371,7 @@ export async function addTodo(
             text,
             completed: false,
             createdAt: serverTimestamp(),
+            completedAt: null,
             priority,
             tags
         });
@@ -380,6 +384,7 @@ export async function addTodo(
                 text: data.text,
                 completed: data.completed,
                 createdAt: (data.createdAt as Timestamp).toDate().toISOString(),
+                completedAt: null,
                 priority: data.priority,
                 tags: data.tags,
             };
@@ -391,13 +396,15 @@ export async function addTodo(
     }
 }
 
-export async function toggleTodo(todoId: string, completed: boolean): Promise<{ success: boolean }> {
+export async function toggleTodo(todoId: string, completed: boolean): Promise<{ success: boolean; completedAt: string | null }> {
     try {
-        await updateDoc(doc(db, 'myToDos', todoId), { completed });
-        return { success: true };
+        const completedAt = completed ? serverTimestamp() : null;
+        await updateDoc(doc(db, 'myToDos', todoId), { completed, completedAt });
+        const newCompletedAt = completed ? new Date().toISOString() : null;
+        return { success: true, completedAt: newCompletedAt };
     } catch (error) {
         console.error("[actions.ts toggleTodo] Error toggling todo:", error);
-        return { success: false };
+        return { success: false, completedAt: null };
     }
 }
 
@@ -458,3 +465,5 @@ export async function deleteTag(tagId: string): Promise<{ success: boolean }> {
         return { success: false };
     }
 }
+
+    

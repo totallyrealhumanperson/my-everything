@@ -3,13 +3,15 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ListTodo, Loader2, Trash2, Tag, ChevronDown, PlusCircle, X } from 'lucide-react';
+import { ListTodo, Loader2, Trash2, Tag, PlusCircle, X, Filter } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Separator } from '@/components/ui/separator';
 import { useState, useEffect, useTransition, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/auth-context';
@@ -24,6 +26,8 @@ const priorityConfig = {
 
 type Priority = keyof typeof priorityConfig;
 
+const ONE_MINUTE_IN_MS = 60 * 1000;
+
 export default function TodoPage() {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
@@ -36,17 +40,29 @@ export default function TodoPage() {
   const [newTodoTags, setNewTodoTags] = useState<string[]>([]);
   
   const [newTagName, setNewTagName] = useState('');
-
-  const [isLoading, setIsLoading] = useState(true);
   
+  const [isLoading, setIsLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
 
-  const sortedTodos = useMemo(() => {
-    return [...todos].sort((a, b) => {
-        const priorityOrder: Record<Priority, number> = { High: 0, Medium: 1, Low: 2 };
-        return priorityOrder[a.priority] - priorityOrder[b.priority];
-    });
-  }, [todos]);
+  const [showOldCompleted, setShowOldCompleted] = useState(false);
+
+  const filteredTodos = useMemo(() => {
+    const now = Date.now();
+    return [...todos]
+        .filter(todo => {
+            if (todo.completed && todo.completedAt && !showOldCompleted) {
+                const completedTime = new Date(todo.completedAt).getTime();
+                return now - completedTime < ONE_MINUTE_IN_MS;
+            }
+            return true;
+        })
+        .sort((a, b) => {
+            if (a.completed !== b.completed) return a.completed ? 1 : -1;
+            const priorityOrder: Record<Priority, number> = { High: 0, Medium: 1, Low: 2 };
+            if (a.priority !== b.priority) return priorityOrder[a.priority] - priorityOrder[b.priority];
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        });
+  }, [todos, showOldCompleted]);
 
   useEffect(() => {
     if (user) {
@@ -87,15 +103,18 @@ export default function TodoPage() {
 
   const handleToggleTodo = (id: string, completed: boolean) => {
     startTransition(async () => {
-        setTodos(
-          todos.map(todo =>
-            todo.id === id ? { ...todo, completed: !todo.completed } : todo
-          )
-        );
+        const originalTodo = todos.find(t => t.id === id);
+        if (!originalTodo) return;
+
+        setTodos(prev => prev.map(t => t.id === id ? { ...t, completed: !completed, completedAt: !completed ? new Date().toISOString() : null } : t));
+        
         const result = await toggleTodo(id, !completed);
         if(!result.success) {
             toast({ title: "Error", description: "Failed to update task.", variant: "destructive" });
-            setTodos(prev => prev.map(t => t.id === id ? {...t, completed} : t));
+            setTodos(prev => prev.map(t => t.id === id ? { ...t, completed: originalTodo.completed, completedAt: originalTodo.completedAt } : t));
+        } else {
+            // Ensure client state matches server state
+            setTodos(prev => prev.map(t => t.id === id ? { ...t, completedAt: result.completedAt } : t));
         }
     });
   };
@@ -182,6 +201,65 @@ export default function TodoPage() {
 
   return (
     <div className="flex flex-col items-center justify-start min-h-screen p-4 sm:p-8 pt-12 sm:pt-24 gap-8">
+        
+      <Card className="w-full max-w-2xl shadow-xl">
+        <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-xl font-headline">
+                 <PlusCircle className="h-5 w-5 text-primary" />
+                 Add a New Task
+            </CardTitle>
+        </CardHeader>
+        <CardContent>
+             <form onSubmit={handleAddTodo} className="space-y-4">
+                <Input
+                id="new-todo"
+                type="text"
+                placeholder="What needs to be done?"
+                value={newTodo}
+                onChange={(e) => setNewTodo(e.target.value)}
+                disabled={isPending}
+                />
+                <div className="flex flex-col sm:flex-row gap-2">
+                    <Select onValueChange={(v: Priority) => setNewTodoPriority(v)} value={newTodoPriority} disabled={isPending}>
+                        <SelectTrigger className="w-full sm:w-[150px]">
+                            <SelectValue placeholder="Set priority" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {Object.entries(priorityConfig).map(([key, {label}]) => (
+                                <SelectItem key={key} value={key}>{label}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant="outline" className="w-full sm:w-auto justify-start font-normal">
+                                <Tag className="mr-2 h-4 w-4" />
+                                Tags
+                                {newTodoTags.length > 0 && <Badge variant="secondary" className="ml-2 rounded-sm">{newTodoTags.length}</Badge>}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-56 p-0" align="start">
+                            <div className="p-4 space-y-2">
+                                {tags.length > 0 ? tags.map(tag => (
+                                    <div key={tag.id} className="flex items-center gap-2">
+                                        <Checkbox id={`tag-${tag.id}`} checked={newTodoTags.includes(tag.name)} onCheckedChange={() => handleTagSelection(tag.name)}/>
+                                        <Label htmlFor={`tag-${tag.id}`}>{tag.name}</Label>
+                                    </div>
+                                )) : <p className="text-sm text-muted-foreground">No tags yet.</p>}
+                            </div>
+                        </PopoverContent>
+                    </Popover>
+                
+                    <Button type="submit" className="flex-grow" disabled={isPending || newTodo.trim() === ''}>
+                        {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
+                        Add Task
+                    </Button>
+                </div>
+            </form>
+        </CardContent>
+      </Card>
+
       <Card className="w-full max-w-2xl shadow-xl">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-2xl font-headline">
@@ -193,58 +271,23 @@ export default function TodoPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleAddTodo} className="space-y-4">
-            <Input
-              id="new-todo"
-              type="text"
-              placeholder="What needs to be done?"
-              value={newTodo}
-              onChange={(e) => setNewTodo(e.target.value)}
-              disabled={isPending}
-            />
-            <div className="flex flex-col sm:flex-row gap-2">
-                 <Select onValueChange={(v: Priority) => setNewTodoPriority(v)} value={newTodoPriority} disabled={isPending}>
-                    <SelectTrigger className="w-full sm:w-[150px]">
-                        <SelectValue placeholder="Set priority" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {Object.entries(priorityConfig).map(([key, {label}]) => (
-                             <SelectItem key={key} value={key}>{label}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-
-                <Popover>
-                    <PopoverTrigger asChild>
-                        <Button variant="outline" className="w-full sm:w-auto justify-start font-normal">
-                             <Tag className="mr-2 h-4 w-4" />
-                             Tags
-                             {newTodoTags.length > 0 && <Badge variant="secondary" className="ml-2 rounded-sm">{newTodoTags.length}</Badge>}
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-56 p-0" align="start">
-                         <div className="p-4 space-y-2">
-                            {tags.length > 0 ? tags.map(tag => (
-                                <div key={tag.id} className="flex items-center gap-2">
-                                    <Checkbox id={`tag-${tag.id}`} checked={newTodoTags.includes(tag.name)} onCheckedChange={() => handleTagSelection(tag.name)}/>
-                                    <Label htmlFor={`tag-${tag.id}`}>{tag.name}</Label>
-                                </div>
-                            )) : <p className="text-sm text-muted-foreground">No tags yet.</p>}
-                         </div>
-                    </PopoverContent>
-                </Popover>
-               
-                <Button type="submit" className="flex-grow" disabled={isPending || newTodo.trim() === ''}>
-                    {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
-                     Add Task
-                </Button>
+            <div className="flex items-center gap-4 p-4 border-b">
+                 <div className="flex items-center gap-2">
+                    <Filter className="h-4 w-4 text-muted-foreground"/>
+                    <Label htmlFor="show-old-completed" className="text-muted-foreground">Show old completed tasks</Label>
+                 </div>
+                <Switch 
+                    id="show-old-completed"
+                    checked={showOldCompleted}
+                    onCheckedChange={setShowOldCompleted}
+                    aria-label="Toggle visibility of old completed tasks"
+                />
             </div>
-          </form>
 
           <div className="space-y-4 mt-6">
-            {sortedTodos.length > 0 ? (
-              sortedTodos.map((todo) => (
-                <div key={todo.id} className={cn("flex items-start justify-between p-3 rounded-lg bg-muted/50 transition-colors", isPending && 'opacity-50')}>
+            {filteredTodos.length > 0 ? (
+              filteredTodos.map((todo) => (
+                <div key={todo.id} className={cn("flex items-start justify-between p-3 rounded-lg bg-muted/50 transition-colors", (isPending) && 'opacity-50')}>
                   <div className="flex items-start gap-3">
                     <span className={cn("mt-1 h-3 w-3 rounded-full flex-shrink-0", priorityConfig[todo.priority].color)} />
                     <Checkbox
@@ -259,7 +302,7 @@ export default function TodoPage() {
                         <Label
                         htmlFor={`todo-${todo.id}`}
                         className={cn(
-                            'text-base transition-colors',
+                            'text-base transition-colors cursor-pointer',
                             todo.completed ? 'text-muted-foreground line-through' : 'text-foreground'
                         )}
                         >
@@ -321,3 +364,5 @@ export default function TodoPage() {
     </div>
   );
 }
+
+    
