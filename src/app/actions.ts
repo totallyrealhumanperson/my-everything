@@ -173,7 +173,7 @@ export async function submitTweet(tweetContent: string, userId: string): Promise
     const apiError = error as any;
     if (apiError && typeof apiError === 'object' && 'isApiError' in apiError && apiError.isApiError) {
         if (apiError.data && (apiError.data.detail || apiError.data.title)) {
-            errorMessage = api.data.detail || api.data.title || "X API Error";
+            errorMessage = apiError.data.detail || apiError.data.title || "X API Error";
         }
     } else if (error instanceof Error) {
       errorMessage = error.message;
@@ -341,7 +341,6 @@ export async function getTodos(userId: string): Promise<TodoClient[]> {
         const querySnapshot = await getDocs(q);
         return querySnapshot.docs.map(docSnap => {
             const data = docSnap.data() as Omit<Todo, 'id'>;
-            // Handle cases where timestamp might be missing in older data
             const createdAt = data.createdAt ? (data.createdAt as Timestamp).toDate().toISOString() : new Date().toISOString();
             const completedAt = data.completedAt ? (data.completedAt as Timestamp).toDate().toISOString() : null;
 
@@ -367,9 +366,7 @@ export async function getTodos(userId: string): Promise<TodoClient[]> {
 
 export async function addTodo(
     text: string, 
-    userId: string,
-    priority: 'Low' | 'Medium' | 'High',
-    tags: string[]
+    userId: string
 ): Promise<TodoClient | null> {
     if (!userId || !text.trim()) return null;
     try {
@@ -379,8 +376,8 @@ export async function addTodo(
             completed: false,
             createdAt: serverTimestamp(),
             completedAt: null,
-            priority,
-            tags
+            priority: 'Medium', // Default priority
+            tags: [] // Default empty tags
         });
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
@@ -472,5 +469,3 @@ export async function deleteTag(tagId: string): Promise<{ success: boolean }> {
         return { success: false };
     }
 }
-
-    
