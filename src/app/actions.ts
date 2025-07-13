@@ -35,6 +35,18 @@ export interface UserStats {
   streakCount: number;
 }
 
+export interface Todo {
+  id: string;
+  userId: string;
+  text: string;
+  completed: boolean;
+  createdAt: Timestamp;
+}
+
+export interface TodoClient extends Omit<Todo, 'createdAt'> {
+    createdAt: string;
+}
+
 
 export async function analyzeTweetSentiment(data: FilterOffensiveLanguageInput): Promise<FilterOffensiveLanguageOutput> {
   try {
@@ -307,4 +319,71 @@ export async function getUserStats(userId: string): Promise<UserStats> {
     }
 
     return { tweetCount, streakCount };
+}
+
+// To-Do Actions
+
+export async function getTodos(userId: string): Promise<TodoClient[]> {
+    if (!userId) return [];
+    try {
+        const todosRef = collection(db, 'myToDos');
+        const q = query(todosRef, where('userId', '==', userId), orderBy('createdAt', 'desc'));
+        const querySnapshot = await getDocs(q);
+        return querySnapshot.docs.map(docSnap => {
+            const data = docSnap.data() as Todo;
+            return {
+                ...data,
+                id: docSnap.id,
+                createdAt: (data.createdAt as Timestamp).toDate().toISOString(),
+            };
+        });
+    } catch (error) {
+        console.error("[actions.ts getTodos] Error fetching todos:", error);
+        return [];
+    }
+}
+
+export async function addTodo(text: string, userId: string): Promise<TodoClient | null> {
+    if (!userId || !text.trim()) return null;
+    try {
+        const docRef = await addDoc(collection(db, 'myToDos'), {
+            userId,
+            text,
+            completed: false,
+            createdAt: serverTimestamp(),
+        });
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            const data = docSnap.data() as Todo;
+            return {
+                ...data,
+                id: docSnap.id,
+                createdAt: (data.createdAt as Timestamp).toDate().toISOString(),
+            };
+        }
+        return null;
+    } catch (error) {
+        console.error("[actions.ts addTodo] Error adding todo:", error);
+        return null;
+    }
+}
+
+export async function toggleTodo(todoId: string, completed: boolean): Promise<{ success: boolean }> {
+    try {
+        await updateDoc(doc(db, 'myToDos', todoId), { completed });
+        return { success: true };
+    } catch (error) {
+        console.error("[actions.ts toggleTodo] Error toggling todo:", error);
+        return { success: false };
+    }
+}
+
+export async function deleteTodo(todoId: string): Promise<{ success: boolean }> {
+    try {
+        await deleteDoc(doc(db, 'myToDos', todoId));
+        return { success: true };
+    } catch (error) {
+        console.error("[actions.ts deleteTodo] Error deleting todo:", error);
+        return { success: false };
+    }
 }
