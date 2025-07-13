@@ -1,4 +1,3 @@
-
 "use server";
 
 import { filterOffensiveLanguage as aiFilter, type FilterOffensiveLanguageInput, type FilterOffensiveLanguageOutput } from "@/ai/flows/filter-offensive-language";
@@ -173,7 +172,7 @@ export async function submitTweet(tweetContent: string, userId: string): Promise
     const apiError = error as any;
     if (apiError && typeof apiError === 'object' && 'isApiError' in apiError && apiError.isApiError) {
         if (apiError.data && (apiError.data.detail || apiError.data.title)) {
-            errorMessage = apiError.data.detail || apiError.data.title || "X API Error";
+            errorMessage = api.data.detail || api.data.title || "X API Error";
         }
     } else if (error instanceof Error) {
       errorMessage = error.message;
@@ -465,9 +464,3 @@ export async function deleteTag(tagId: string): Promise<{ success: boolean }> {
         return { success: false };
     }
 }
-
-    
-
-    
-
-    

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useTransition, type Dispatch, type SetStateAction } from "react";
@@ -221,7 +220,7 @@ export function TweetComposer({ onDraftSaved, onTweetPosted }: TweetComposerProp
               ) : (
                 <SendHorizonal className="mr-2 h-5 w-5" />
               )}
-              Save Draft
+              Post to X
             </Button>
           </CardFooter>
         </form>
