@@ -367,7 +367,8 @@ export async function getTodos(userId: string): Promise<TodoClient[]> {
 export async function addTodo(
     text: string, 
     userId: string,
-    priority: 'Low' | 'Medium' | 'High'
+    priority: 'Low' | 'Medium' | 'High',
+    tags: string[]
 ): Promise<TodoClient | null> {
     if (!userId || !text.trim()) return null;
     try {
@@ -378,7 +379,7 @@ export async function addTodo(
             createdAt: serverTimestamp(),
             completedAt: null,
             priority: priority,
-            tags: [] // Default empty tags
+            tags: tags
         });
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
@@ -470,3 +471,5 @@ export async function deleteTag(tagId: string): Promise<{ success: boolean }> {
         return { success: false };
     }
 }
+
+    

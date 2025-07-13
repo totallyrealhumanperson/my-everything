@@ -62,40 +62,53 @@ export function TodoItem({ todo, onToggle, onDelete }: TodoItemProps) {
   return (
     <li
       className={cn(
-        'flex items-center gap-3 p-3 transition-colors first:rounded-t-md last:rounded-b-md',
+        'flex flex-col items-start gap-3 p-3 transition-colors first:rounded-t-md last:rounded-b-md',
         todo.completed && 'bg-muted/50',
         isPending && 'opacity-50'
       )}
     >
-      <Checkbox
-        id={`todo-${todo.id}`}
-        checked={todo.completed}
-        onCheckedChange={handleToggle}
-        disabled={isPending}
-        aria-label={`Mark "${todo.text}" as ${todo.completed ? 'incomplete' : 'complete'}`}
-      />
-      <label
-        htmlFor={`todo-${todo.id}`}
-        className={cn(
-          'flex-grow text-sm cursor-pointer',
-          todo.completed && 'text-muted-foreground line-through'
-        )}
-      >
-        {todo.text}
-      </label>
-      <Badge variant={priorityVariantMap[todo.priority] || 'default'} className="hidden sm:inline-flex">
-        {priorityTextMap[todo.priority] || 'Medium'}
-      </Badge>
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={handleDelete}
-        disabled={isPending}
-        className="h-8 w-8"
-        aria-label={`Delete task "${todo.text}"`}
-      >
-        {isDeletePending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4 text-destructive" />}
-      </Button>
+      <div className="flex w-full items-center gap-3">
+        <Checkbox
+          id={`todo-${todo.id}`}
+          checked={todo.completed}
+          onCheckedChange={handleToggle}
+          disabled={isPending}
+          aria-label={`Mark "${todo.text}" as ${todo.completed ? 'incomplete' : 'complete'}`}
+        />
+        <label
+          htmlFor={`todo-${todo.id}`}
+          className={cn(
+            'flex-grow text-sm cursor-pointer',
+            todo.completed && 'text-muted-foreground line-through'
+          )}
+        >
+          {todo.text}
+        </label>
+        <Badge variant={priorityVariantMap[todo.priority] || 'default'} className="hidden sm:inline-flex">
+          {priorityTextMap[todo.priority] || 'Medium'}
+        </Badge>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleDelete}
+          disabled={isPending}
+          className="h-8 w-8"
+          aria-label={`Delete task "${todo.text}"`}
+        >
+          {isDeletePending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4 text-destructive" />}
+        </Button>
+      </div>
+      {todo.tags && todo.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1 pl-10">
+          {todo.tags.map((tag, index) => (
+            <Badge key={index} variant="outline" className="py-1 px-2 text-xs">
+              {tag}
+            </Badge>
+          ))}
+        </div>
+      )}
     </li>
   );
 }
+
+    
