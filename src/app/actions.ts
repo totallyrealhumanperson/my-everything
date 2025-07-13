@@ -1,3 +1,4 @@
+
 "use server";
 
 import { filterOffensiveLanguage as aiFilter, type FilterOffensiveLanguageInput, type FilterOffensiveLanguageOutput } from "@/ai/flows/filter-offensive-language";
@@ -336,23 +337,30 @@ export async function getTodos(userId: string): Promise<TodoClient[]> {
     if (!userId) return [];
     try {
         const todosRef = collection(db, 'myToDos');
-        const q = query(todosRef, where('userId', '==', userId), orderBy('createdAt', 'desc'));
+        const q = query(todosRef, where('userId', '==', userId));
         const querySnapshot = await getDocs(q);
         return querySnapshot.docs.map(docSnap => {
             const data = docSnap.data() as Omit<Todo, 'id'>;
+            // Handle cases where timestamp might be missing in older data
+            const createdAt = data.createdAt ? (data.createdAt as Timestamp).toDate().toISOString() : new Date().toISOString();
+            const completedAt = data.completedAt ? (data.completedAt as Timestamp).toDate().toISOString() : null;
+
             return {
                 id: docSnap.id,
                 userId: data.userId,
                 text: data.text,
-                completed: data.completed,
-                createdAt: (data.createdAt as Timestamp).toDate().toISOString(),
-                completedAt: data.completedAt ? (data.completedAt as Timestamp).toDate().toISOString() : null,
+                completed: data.completed || false,
+                createdAt: createdAt,
+                completedAt: completedAt,
                 priority: data.priority || 'Medium',
                 tags: data.tags || [],
             };
         });
     } catch (error) {
         console.error("[actions.ts getTodos] Error fetching todos:", error);
+        if ((error as any)?.code === 'failed-precondition') {
+            console.error("[actions.ts getTodos] Firestore 'failed-precondition' error. This often means a required composite index is missing or still building. Please check your Firestore indexes for 'myToDos' collection, for a 'userId' query.");
+        }
         return [];
     }
 }
@@ -464,3 +472,5 @@ export async function deleteTag(tagId: string): Promise<{ success: boolean }> {
         return { success: false };
     }
 }
+
+    
