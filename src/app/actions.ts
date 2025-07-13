@@ -41,10 +41,18 @@ export interface Todo {
   text: string;
   completed: boolean;
   createdAt: Timestamp;
+  priority: 'Low' | 'Medium' | 'High';
+  tags: string[];
 }
 
 export interface TodoClient extends Omit<Todo, 'createdAt'> {
     createdAt: string;
+}
+
+export interface Tag {
+    id: string;
+    userId: string;
+    name: string;
 }
 
 
@@ -330,11 +338,15 @@ export async function getTodos(userId: string): Promise<TodoClient[]> {
         const q = query(todosRef, where('userId', '==', userId), orderBy('createdAt', 'desc'));
         const querySnapshot = await getDocs(q);
         return querySnapshot.docs.map(docSnap => {
-            const data = docSnap.data() as Todo;
+            const data = docSnap.data() as Omit<Todo, 'id'>;
             return {
-                ...data,
                 id: docSnap.id,
+                userId: data.userId,
+                text: data.text,
+                completed: data.completed,
                 createdAt: (data.createdAt as Timestamp).toDate().toISOString(),
+                priority: data.priority || 'Medium',
+                tags: data.tags || [],
             };
         });
     } catch (error) {
@@ -343,7 +355,12 @@ export async function getTodos(userId: string): Promise<TodoClient[]> {
     }
 }
 
-export async function addTodo(text: string, userId: string): Promise<TodoClient | null> {
+export async function addTodo(
+    text: string, 
+    userId: string,
+    priority: 'Low' | 'Medium' | 'High',
+    tags: string[]
+): Promise<TodoClient | null> {
     if (!userId || !text.trim()) return null;
     try {
         const docRef = await addDoc(collection(db, 'myToDos'), {
@@ -351,14 +368,20 @@ export async function addTodo(text: string, userId: string): Promise<TodoClient 
             text,
             completed: false,
             createdAt: serverTimestamp(),
+            priority,
+            tags
         });
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
-            const data = docSnap.data() as Todo;
+            const data = docSnap.data() as Omit<Todo, 'id'>;
             return {
-                ...data,
                 id: docSnap.id,
+                userId: data.userId,
+                text: data.text,
+                completed: data.completed,
                 createdAt: (data.createdAt as Timestamp).toDate().toISOString(),
+                priority: data.priority,
+                tags: data.tags,
             };
         }
         return null;
@@ -384,6 +407,54 @@ export async function deleteTodo(todoId: string): Promise<{ success: boolean }> 
         return { success: true };
     } catch (error) {
         console.error("[actions.ts deleteTodo] Error deleting todo:", error);
+        return { success: false };
+    }
+}
+
+// Tag Actions
+
+export async function getTags(userId: string): Promise<Tag[]> {
+    if (!userId) return [];
+    try {
+        const tagsRef = collection(db, 'toDoTags');
+        const q = query(tagsRef, where('userId', '==', userId));
+        const querySnapshot = await getDocs(q);
+        return querySnapshot.docs.map(docSnap => ({
+            id: docSnap.id,
+            ...docSnap.data()
+        } as Tag));
+    } catch (error) {
+        console.error("[actions.ts getTags] Error fetching tags:", error);
+        return [];
+    }
+}
+
+export async function addTag(name: string, userId: string): Promise<Tag | null> {
+    if (!userId || !name.trim()) return null;
+    
+    const tagsRef = collection(db, 'toDoTags');
+    const q = query(tagsRef, where('userId', '==', userId), where('name', '==', name.trim()));
+    const existing = await getDocs(q);
+    if (!existing.empty) {
+        // Tag already exists, just return it
+        return { id: existing.docs[0].id, ...existing.docs[0].data() } as Tag;
+    }
+
+    try {
+        const docRef = await addDoc(tagsRef, { userId, name: name.trim() });
+        return { id: docRef.id, userId, name: name.trim() };
+    } catch (error) {
+        console.error("[actions.ts addTag] Error adding tag:", error);
+        return null;
+    }
+}
+
+export async function deleteTag(tagId: string): Promise<{ success: boolean }> {
+    try {
+        await deleteDoc(doc(db, 'toDoTags', tagId));
+        return { success: true };
+    } catch (error) {
+        console.error("[actions.ts deleteTag] Error deleting tag:", error);
         return { success: false };
     }
 }

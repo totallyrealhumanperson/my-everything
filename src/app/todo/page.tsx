@@ -1,43 +1,70 @@
 
 'use client';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ListTodo, Loader2, Trash2 } from 'lucide-react';
+import { ListTodo, Loader2, Trash2, Tag, ChevronDown, PlusCircle, X } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useState, useEffect, useTransition } from 'react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useState, useEffect, useTransition, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/auth-context';
-import { getTodos, addTodo, toggleTodo, deleteTodo, type TodoClient } from '@/app/actions';
+import { getTodos, addTodo, toggleTodo, deleteTodo, type TodoClient, getTags, addTag, deleteTag, type Tag as TagType } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 
+const priorityConfig = {
+    High: { label: "High", color: "bg-red-500", ring: "ring-red-500/50" },
+    Medium: { label: "Medium", color: "bg-yellow-500", ring: "ring-yellow-500/50" },
+    Low: { label: "Low", color: "bg-blue-500", ring: "ring-blue-500/50" },
+};
+
+type Priority = keyof typeof priorityConfig;
 
 export default function TodoPage() {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   
   const [todos, setTodos] = useState<TodoClient[]>([]);
+  const [tags, setTags] = useState<TagType[]>([]);
+
   const [newTodo, setNewTodo] = useState('');
+  const [newTodoPriority, setNewTodoPriority] = useState<Priority>('Medium');
+  const [newTodoTags, setNewTodoTags] = useState<string[]>([]);
+  
+  const [newTagName, setNewTagName] = useState('');
+
   const [isLoading, setIsLoading] = useState(true);
   
   const [isPending, startTransition] = useTransition();
 
+  const sortedTodos = useMemo(() => {
+    return [...todos].sort((a, b) => {
+        const priorityOrder: Record<Priority, number> = { High: 0, Medium: 1, Low: 2 };
+        return priorityOrder[a.priority] - priorityOrder[b.priority];
+    });
+  }, [todos]);
+
   useEffect(() => {
     if (user) {
       setIsLoading(true);
-      getTodos(user.uid)
-        .then(setTodos)
+      Promise.all([getTodos(user.uid), getTags(user.uid)])
+        .then(([userTodos, userTags]) => {
+          setTodos(userTodos);
+          setTags(userTags);
+        })
         .catch(err => {
           console.error(err);
-          toast({ title: 'Error', description: 'Failed to load your tasks.', variant: 'destructive' });
+          toast({ title: 'Error', description: 'Failed to load your data.', variant: 'destructive' });
         })
         .finally(() => setIsLoading(false));
     } else if (!authLoading) {
-        // Not logged in, so stop loading
         setIsLoading(false);
         setTodos([]);
+        setTags([]);
     }
   }, [user, authLoading, toast]);
 
@@ -45,32 +72,21 @@ export default function TodoPage() {
     e.preventDefault();
     if (newTodo.trim() === '' || !user) return;
     
-    const tempId = Date.now().toString();
-    const optimisticTodo: TodoClient = {
-      id: tempId,
-      userId: user.uid,
-      text: newTodo,
-      completed: false,
-      createdAt: new Date().toISOString(),
-    };
-
     startTransition(async () => {
-      setTodos(prev => [optimisticTodo, ...prev]);
-      setNewTodo('');
-      
-      const createdTodo = await addTodo(newTodo, user.uid);
+      const createdTodo = await addTodo(newTodo, user.uid, newTodoPriority, newTodoTags);
       if (createdTodo) {
-        setTodos(prev => prev.map(t => t.id === tempId ? createdTodo : t));
+        setTodos(prev => [createdTodo, ...prev]);
+        setNewTodo('');
+        setNewTodoPriority('Medium');
+        setNewTodoTags([]);
       } else {
         toast({ title: "Error", description: "Failed to add task.", variant: "destructive" });
-        setTodos(prev => prev.filter(t => t.id !== tempId));
       }
     });
   };
 
   const handleToggleTodo = (id: string, completed: boolean) => {
     startTransition(async () => {
-        const originalTodos = [...todos];
         setTodos(
           todos.map(todo =>
             todo.id === id ? { ...todo, completed: !todo.completed } : todo
@@ -79,7 +95,7 @@ export default function TodoPage() {
         const result = await toggleTodo(id, !completed);
         if(!result.success) {
             toast({ title: "Error", description: "Failed to update task.", variant: "destructive" });
-            setTodos(originalTodos); // Revert on failure
+            setTodos(prev => prev.map(t => t.id === id ? {...t, completed} : t));
         }
     });
   };
@@ -91,10 +107,47 @@ export default function TodoPage() {
         const result = await deleteTodo(id);
         if(!result.success) {
             toast({ title: "Error", description: "Failed to delete task.", variant: "destructive" });
-            setTodos(originalTodos); // Revert on failure
+            setTodos(originalTodos);
         }
     });
   };
+
+  const handleAddTag = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newTagName.trim() === '' || !user) return;
+
+    startTransition(async () => {
+        const createdTag = await addTag(newTagName, user.uid);
+        if (createdTag) {
+            if (!tags.find(t => t.id === createdTag.id)) {
+                setTags(prev => [...prev, createdTag]);
+            }
+            setNewTagName('');
+        } else {
+            toast({ title: "Error", description: "Failed to add tag.", variant: "destructive" });
+        }
+    });
+  }
+
+  const handleDeleteTag = (tagId: string) => {
+    startTransition(async () => {
+        const originalTags = [...tags];
+        setTags(tags.filter(tag => tag.id !== tagId));
+        const result = await deleteTag(tagId);
+        if (!result.success) {
+            toast({ title: "Error", description: "Failed to delete tag.", variant: "destructive" });
+            setTags(originalTags);
+        }
+    });
+  }
+  
+  const handleTagSelection = (tagName: string) => {
+    setNewTodoTags(prev => 
+        prev.includes(tagName) 
+        ? prev.filter(t => t !== tagName) 
+        : [...prev, tagName]
+    );
+  }
 
   if (authLoading || (isLoading && user)) {
     return (
@@ -128,7 +181,7 @@ export default function TodoPage() {
   }
 
   return (
-    <div className="flex flex-col items-center justify-start min-h-screen p-4 sm:p-8 pt-12 sm:pt-24">
+    <div className="flex flex-col items-center justify-start min-h-screen p-4 sm:p-8 pt-12 sm:pt-24 gap-8">
       <Card className="w-full max-w-2xl shadow-xl">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-2xl font-headline">
@@ -136,46 +189,86 @@ export default function TodoPage() {
             My To-Do List
           </CardTitle>
           <CardDescription>
-            Add, check off, and manage your daily tasks.
+            Add, check off, and manage your daily tasks with priorities and tags.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleAddTodo} className="flex items-center gap-2 mb-6">
+          <form onSubmit={handleAddTodo} className="space-y-4">
             <Input
               id="new-todo"
               type="text"
               placeholder="What needs to be done?"
               value={newTodo}
               onChange={(e) => setNewTodo(e.target.value)}
-              className="flex-grow"
               disabled={isPending}
             />
-            <Button type="submit" disabled={isPending || newTodo.trim() === ''}>
-              {isPending && todos.some(t => t.id.length > 15) ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Add Task'}
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-2">
+                 <Select onValueChange={(v: Priority) => setNewTodoPriority(v)} value={newTodoPriority} disabled={isPending}>
+                    <SelectTrigger className="w-full sm:w-[150px]">
+                        <SelectValue placeholder="Set priority" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {Object.entries(priorityConfig).map(([key, {label}]) => (
+                             <SelectItem key={key} value={key}>{label}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+
+                <Popover>
+                    <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-full sm:w-auto justify-start font-normal">
+                             <Tag className="mr-2 h-4 w-4" />
+                             Tags
+                             {newTodoTags.length > 0 && <Badge variant="secondary" className="ml-2 rounded-sm">{newTodoTags.length}</Badge>}
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-56 p-0" align="start">
+                         <div className="p-4 space-y-2">
+                            {tags.length > 0 ? tags.map(tag => (
+                                <div key={tag.id} className="flex items-center gap-2">
+                                    <Checkbox id={`tag-${tag.id}`} checked={newTodoTags.includes(tag.name)} onCheckedChange={() => handleTagSelection(tag.name)}/>
+                                    <Label htmlFor={`tag-${tag.id}`}>{tag.name}</Label>
+                                </div>
+                            )) : <p className="text-sm text-muted-foreground">No tags yet.</p>}
+                         </div>
+                    </PopoverContent>
+                </Popover>
+               
+                <Button type="submit" className="flex-grow" disabled={isPending || newTodo.trim() === ''}>
+                    {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
+                     Add Task
+                </Button>
+            </div>
           </form>
 
-          <div className="space-y-4">
-            {todos.length > 0 ? (
-              todos.map((todo) => (
-                <div key={todo.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 transition-colors">
-                  <div className="flex items-center gap-3">
+          <div className="space-y-4 mt-6">
+            {sortedTodos.length > 0 ? (
+              sortedTodos.map((todo) => (
+                <div key={todo.id} className={cn("flex items-start justify-between p-3 rounded-lg bg-muted/50 transition-colors", isPending && 'opacity-50')}>
+                  <div className="flex items-start gap-3">
+                    <span className={cn("mt-1 h-3 w-3 rounded-full flex-shrink-0", priorityConfig[todo.priority].color)} />
                     <Checkbox
                       id={`todo-${todo.id}`}
                       checked={todo.completed}
                       onCheckedChange={() => handleToggleTodo(todo.id, todo.completed)}
                       aria-label={`Mark "${todo.text}" as ${todo.completed ? 'incomplete' : 'complete'}`}
                       disabled={isPending}
+                      className="mt-0.5"
                     />
-                    <Label
-                      htmlFor={`todo-${todo.id}`}
-                      className={cn(
-                        'text-base transition-colors',
-                        todo.completed ? 'text-muted-foreground line-through' : 'text-foreground'
-                      )}
-                    >
-                      {todo.text}
-                    </Label>
+                    <div className="flex flex-col">
+                        <Label
+                        htmlFor={`todo-${todo.id}`}
+                        className={cn(
+                            'text-base transition-colors',
+                            todo.completed ? 'text-muted-foreground line-through' : 'text-foreground'
+                        )}
+                        >
+                        {todo.text}
+                        </Label>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                            {todo.tags.map(tag => <Badge key={tag} variant="secondary">{tag}</Badge>)}
+                        </div>
+                    </div>
                   </div>
                    <Button variant="ghost" size="icon" onClick={() => handleDeleteTodo(todo.id)} aria-label={`Delete task "${todo.text}"`} disabled={isPending}>
                       <Trash2 className="h-4 w-4 text-destructive/70 hover:text-destructive" />
@@ -189,6 +282,40 @@ export default function TodoPage() {
               </div>
             )}
           </div>
+        </CardContent>
+      </Card>
+      
+      <Card className="w-full max-w-2xl shadow-xl">
+        <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-xl font-headline">
+                <Tag className="h-5 w-5 text-primary" />
+                Manage Tags
+            </CardTitle>
+        </CardHeader>
+        <CardContent>
+            <form onSubmit={handleAddTag} className="flex items-center gap-2 mb-4">
+                 <Input
+                    id="new-tag"
+                    type="text"
+                    placeholder="New tag name..."
+                    value={newTagName}
+                    onChange={(e) => setNewTagName(e.target.value)}
+                    disabled={isPending}
+                 />
+                 <Button type="submit" disabled={isPending || newTagName.trim() === ''}>
+                    {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add Tag"}
+                 </Button>
+            </form>
+            <div className="flex flex-wrap gap-2">
+                {tags.length > 0 ? tags.map(tag => (
+                    <Badge key={tag.id} variant="outline" className="text-base py-1 pl-3 pr-1">
+                        {tag.name}
+                        <Button variant="ghost" size="icon" className="h-5 w-5 ml-1" onClick={() => handleDeleteTag(tag.id)} disabled={isPending}>
+                            <X className="h-3 w-3" />
+                        </Button>
+                    </Badge>
+                )) : <p className="text-sm text-muted-foreground">No tags created yet.</p>}
+            </div>
         </CardContent>
       </Card>
     </div>
